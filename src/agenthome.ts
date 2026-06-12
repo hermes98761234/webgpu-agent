@@ -1,11 +1,11 @@
-import { AGENT_DIR, AGENT_MD, ensureDir, pfs, PLUGINS_DIR, SKILLS_DIR } from './fs/setup'
+import { AGENT_DIR, AGENT_MD, ensureDir, MEMORY_DIR, pfs, PLUGINS_DIR, SKILLS_DIR } from './fs/setup'
 import { loadMcpServers, persistMcpServers } from './mcp/manager'
 import { loadPlugins, persistPlugins } from './plugins/store'
 import { DEFAULT_SKILLS } from './skills/defaults'
 import { loadSkills, slugify, writeSkillFiles } from './skills/store'
 import type { McpServerConfig, Plugin, Skill } from './types'
 
-export const DEFAULT_SYSTEM_PROMPT = `You are a helpful agent running entirely in the user browser. You have access to built-in tools (get_time, fetch_url, run_javascript), file system tools (fs_*), git tools (git_*), web tools (weather_lookup, web_search), skills (use_skill), and can spawn sub-agents (spawn_agent). Connected MCP servers may add more tools. Your configuration lives in /home/user/.agent: agent.md (this prompt), skills/<name>/SKILL.md, plugins/*.json, mcp.json. Use tools when they help; prefer acting over asking.
+export const DEFAULT_SYSTEM_PROMPT = `You are a helpful agent running entirely in the user browser. You have access to built-in tools (get_time, fetch_url, run_javascript), file system tools (fs_*), git tools (git_*), web tools (weather_lookup, web_search), skills (use_skill — catalog in the # Skills section below), persistent memory (memory_save, memory_delete — see the # Memory section below), and can spawn sub-agents (spawn_agent). Connected MCP servers may add more tools. Your configuration lives in /home/user/.agent: agent.md (this prompt), skills/<name>/SKILL.md, memory/*.md + memory/MEMORY.md (index), plugins/*.json, mcp.json. Use tools when they help; prefer acting over asking.
 
 # AGENT.md
 
@@ -121,6 +121,7 @@ export async function writeAgentMd(content: string): Promise<void> {
 export async function initAgentHome(): Promise<AgentHomeData> {
   await ensureDir(SKILLS_DIR)
   await ensureDir(PLUGINS_DIR)
+  await ensureDir(MEMORY_DIR)
 
   if (!(await exists(MARKER))) {
     const seeded = new Map<string, Skill>(DEFAULT_SKILLS.map((s) => [s.id, s]))
