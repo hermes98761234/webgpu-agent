@@ -61,6 +61,11 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .msg-tool-error { background: var(--msg-tool-error-bg); }
 .msg-error { align-self: center; color: var(--error); }
 
+.think-spoiler { border: 1px solid var(--border); border-radius: 6px; margin: 6px 0; font-size: 13px; }
+.think-spoiler summary { cursor: pointer; color: var(--text-dim); padding: 6px 10px; user-select: none; }
+.think-spoiler summary:hover { color: var(--text); }
+.think-spoiler pre { margin: 0; padding: 6px 10px; overflow-x: auto; max-height: 240px; white-space: pre-wrap; font-size: 12px; color: var(--text-dim); }
+
 /* Empty state */
 .empty-state { margin: auto; max-width: 440px; text-align: center; color: var(--text-dim); display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .empty-state-icon { font-size: 40px; }

@@ -46,8 +46,16 @@ function splitWebAgentUI(text: string): Array<{ type: 'text' | 'ui'; content: st
 
 /** Simple regex-based markdown formatter */
 function formatMarkdown(text: string): string {
-  // Escape HTML entities first
-  let s = text
+  // Extract <think> blocks into placeholders before escaping
+  const thinkingParts: string[] = []
+  let s = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
+    const idx = thinkingParts.length
+    thinkingParts.push(inner)
+    return `%%THINK_${idx}%%`
+  })
+
+  // Escape HTML entities
+  s = s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -66,6 +74,15 @@ function formatMarkdown(text: string): string {
 
   // Newlines to <br> (but not inside pre blocks)
   s = s.replace(/(?<!<\/pre>)\n/g, '<br>')
+
+  // Reinject thinking spoilers
+  s = s.replace(/%%THINK_(\d+)%%/g, (_, i) => {
+    const escaped = thinkingParts[Number(i)]
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    return `<details class="think-spoiler"><summary>thinking</summary><pre>${escaped}</pre></details>`
+  })
 
   return s
 }

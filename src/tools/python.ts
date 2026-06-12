@@ -15,7 +15,7 @@ async function initDonkey() {
   const py = await donkey({
     type: 'py',
     persistent: true,
-    terminal: '#pyscript-terminal-hidden',
+    terminal,
   })
 
   await py.execute(`
