@@ -4,10 +4,10 @@ import type { GitHttpRequest, GitHttpResponse, HttpClient } from 'isomorphic-git
 import type { ToolDef } from '../types'
 import { fs } from '../fs/setup'
 
-const CORS_PROXY = 'https://corsproxy.io/'
+const CORS_PROXY = 'https://cors.io/?url='
 
 async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
-  const proxyUrl = CORS_PROXY + '?url=' + encodeURIComponent(req.url)
+  const proxyUrl = CORS_PROXY + encodeURIComponent(req.url)
   const proxyReq: GitHttpRequest = { ...req, url: proxyUrl }
   try {
     return await defaultHttp.request(proxyReq)
