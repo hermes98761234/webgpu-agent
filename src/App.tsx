@@ -8,6 +8,7 @@ import { gitTools } from './tools/git'
 import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
 import { loadSkills, makeUseSkillTool, upsertSkill } from './skills/store'
+import { seedDefaultSkills } from './skills/defaults'
 import { setStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
 import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Provider, SlashCommand, ToolDef } from './types'
 import { Composer } from './ui/Composer'
@@ -22,6 +23,9 @@ import { SkillsGallery } from './ui/SkillsGallery'
 import type { Skill } from './types'
 
 const localProvider = new LocalProvider()
+
+// Seed built-in skills on first load (idempotent)
+seedDefaultSkills()
 
 const DEFAULT_SETTINGS: AgentSettings = {
   temperature: 0.7,
