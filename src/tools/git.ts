@@ -9,17 +9,27 @@ const CORS_PROXY = 'https://corsproxy.io/?url='
 async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
   const proxyUrl = CORS_PROXY + encodeURIComponent(req.url)
   try {
+    let bodyInit: BodyInit | undefined
+    if (req.body) {
+      const chunks: Uint8Array[] = []
+      for await (const chunk of req.body) chunks.push(chunk)
+      const total = chunks.reduce((n, c) => n + c.length, 0)
+      const merged = new Uint8Array(total)
+      let offset = 0
+      for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length }
+      bodyInit = merged
+    }
     const response = await fetch(proxyUrl, {
       method: req.method,
       headers: req.headers as Record<string, string>,
-      body: req.body,
+      body: bodyInit,
     })
-    const body = await response.arrayBuffer()
+    const buffer = await response.arrayBuffer()
     return {
       url: req.url,
       method: req.method,
       headers: Object.fromEntries(response.headers.entries()),
-      body: body as any,
+      body: buffer as any,
       statusCode: response.status,
       statusMessage: response.statusText,
     }
