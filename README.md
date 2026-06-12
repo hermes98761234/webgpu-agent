@@ -1,73 +1,62 @@
-# React + TypeScript + Vite
+# 🤖 webgpu-agent
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**AI agent that runs entirely in your browser** · [Live Demo](https://hermes98761234.github.io/webgpu-agent/)
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Local models via WebGPU** — Run open-source LLMs directly in your browser using `@mlc-ai/web-llm`. Model weights are cached in-browser; nothing leaves your machine.
+- **External API mode** — Connect to any OpenAI-compatible API: OpenAI, OpenRouter, or a custom base URL.
+- **Agent tool loop** — Built-in tools: `get_time`, `fetch_url`, and `run_javascript` (sandboxed in a Web Worker).
+- **User-defined skills** — Create, edit, and delete custom skills stored in `localStorage`, loaded via the `use_skill` tool.
+- **Remote MCP servers** — Connect to MCP servers over Streamable HTTP, with tool names automatically prefixed by server.
 
-## React Compiler
+## Browser Requirements
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Local models:** A WebGPU-capable browser — Chrome/Edge 113+, or recent Firefox/Safari builds.
+- **API mode:** Any modern browser.
+- **Model downloads:** ~1–3 GB depending on the model. Weights are cached in the browser after first download.
 
-## Expanding the ESLint configuration
+## Usage
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Choose **Local** (WebGPU) or **API** mode.
+2. **Local:** pick a preset model and wait for it to download/cache. **API:** enter your API key and model ID.
+3. Chat with the agent.
+4. Add custom skills via the **Skills** panel.
+5. Add MCP servers via the **MCP** panel (servers must be CORS-enabled — see note below).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+> **CORS limitation:** MCP servers must have CORS headers configured to accept requests from the browser. This is a browser security constraint, not a bug in webgpu-agent.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Security Notes
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- API keys are stored in browser `localStorage` only — never sent to any third party.
+- `run_javascript` executes inside a Web Worker sandbox with no DOM access.
+- All requests originate directly from your browser. There is no intermediate backend.
+
+## Development
+
+```bash
+npm install
+npm run dev      # start dev server
+npm test         # run tests (vitest run)
+npm run build    # production build
+npm run preview  # preview production build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Project Structure
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Directory | Purpose |
+|-----------|---------|
+| `src/providers/` | Model providers — local (WebLLM) and external API |
+| `src/agent/` | Agent loop and tool prompt generation |
+| `src/tools/` | Built-in tools (`get_time`, `fetch_url`, `run_javascript`) |
+| `src/skills/` | User-defined skills store (localStorage) |
+| `src/mcp/` | MCP client manager (Streamable HTTP) |
+| `src/ui/` | React UI components (chat, model picker, panels) |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Deployment
+
+Push to `main` → GitHub Actions automatically builds and deploys to [GitHub Pages](https://hermes98761234.github.io/webgpu-agent/).
+
+## Tech Stack
+
+[Vite](https://vitejs.dev/) · [React](https://react.dev/) · [TypeScript](https://www.typescriptlang.org/) · [`@mlc-ai/web-llm`](https://github.com/mlc-ai/web-llm) · [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) · [Vitest](https://vitest.dev/)
