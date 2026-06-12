@@ -3,20 +3,46 @@ import type { ToolDef } from '../types'
 let donkeyReady: Promise<{ execute: (code: string) => Promise<void>; evaluate: (expr: string) => Promise<string> }> | null = null
 
 async function initDonkey() {
+  // Load PyScript so it processes <script type="py"> tags. Note: we don't use
+  // donkey() — it forces a `terminal` attribute, and the py-terminal plugin's
+  // worker bootstrap needs SharedArrayBuffer (COOP/COEP headers) we don't have
+  // on GitHub Pages. We create a plain worker script instead.
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error — CDN module has no type declarations
-  const { donkey } = await import('https://pyscript.net/releases/2026.3.1/core.js')
+  await import('https://pyscript.net/releases/2026.3.1/core.js')
 
-  const terminal = document.createElement('div')
-  terminal.id = 'pyscript-terminal-hidden'
-  terminal.style.display = 'none'
-  document.body.appendChild(terminal)
+  const bootstrap = [
+    'from pyscript import sync',
+    '__locals__ = {}',
+    'def execute(code):',
+    '\treturn exec(code, globals(), __locals__)',
+    'def evaluate(code):',
+    '\treturn eval(code, globals(), __locals__)',
+    'sync.execute = execute',
+    'sync.evaluate = evaluate',
+  ].join('\n')
 
-  const py = await donkey({
-    type: 'py',
-    persistent: true,
-    terminal,
+  const src = URL.createObjectURL(new Blob([bootstrap]))
+  const script = document.createElement('script')
+  script.type = 'py'
+  script.src = src
+  script.toggleAttribute('worker', true)
+
+  const done = new Promise<void>((resolve) => {
+    script.addEventListener('py:done', () => resolve(), { once: true })
   })
+  document.body.appendChild(script)
+  await done
+
+  URL.revokeObjectURL(src)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { sync } = (script as any).xworker
+  script.remove()
+
+  const py = {
+    execute: (code: string) => sync.execute(code) as Promise<void>,
+    evaluate: (expr: string) => sync.evaluate(expr) as Promise<string>,
+  }
 
   await py.execute(`
 import sys, io
