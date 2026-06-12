@@ -1,4 +1,4 @@
-import type { ApiConfig, ChatMessage, ChatResult, Provider, ToolCall, ToolDef } from '../types'
+import type { AgentSettings, ApiConfig, ChatMessage, ChatResult, Provider, ToolCall, ToolDef } from '../types'
 
 export const API_PRESETS: Record<ApiConfig['kind'], { label: string; baseUrl: string }> = {
   openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
@@ -63,12 +63,18 @@ export class ApiProvider implements Provider {
     tools: ToolDef[],
     onDelta: (text: string) => void,
     signal?: AbortSignal,
+    settings?: AgentSettings,
   ): Promise<ChatResult> {
     const body: Record<string, unknown> = {
       model: this.#config.model,
       messages: messages.map(toWireMessage),
       stream: true,
     }
+    if (settings?.temperature !== undefined) body.temperature = settings.temperature
+    if (settings?.topP !== undefined) body.top_p = settings.topP
+    if (settings?.maxTokens !== undefined) body.max_tokens = settings.maxTokens
+    if (settings?.presencePenalty !== undefined) body.presence_penalty = settings.presencePenalty
+    if (settings?.frequencyPenalty !== undefined) body.frequency_penalty = settings.frequencyPenalty
     if (tools.length > 0) {
       body.tools = tools.map((t) => ({
         type: 'function',

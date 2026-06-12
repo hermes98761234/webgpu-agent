@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { deleteSkill, loadSkills, upsertSkill } from '../skills/store'
 import type { Skill } from '../types'
 
-export function SkillsPanel({ disabled }: { disabled: boolean }) {
+export function SkillsPanel({ disabled, onOpenGallery }: { disabled: boolean; onOpenGallery?: () => void }) {
   const [skills, setSkills] = useState<Skill[]>(() => loadSkills())
   const [editing, setEditing] = useState<Skill | null>(null)
 
@@ -55,7 +55,10 @@ export function SkillsPanel({ disabled }: { disabled: boolean }) {
           </div>
         </div>
       ) : (
-        <button onClick={() => setEditing(blank())} disabled={disabled}>+ Add skill</button>
+        <div className="row">
+          <button onClick={() => setEditing(blank())} disabled={disabled}>+ Add skill</button>
+          {onOpenGallery && <button className="btn-ghost" onClick={onOpenGallery} disabled={disabled}>Browse</button>}
+        </div>
       )}
     </details>
   )

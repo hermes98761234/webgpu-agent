@@ -3,16 +3,48 @@ import { runAgent } from './agent/loop'
 import { ApiProvider } from './providers/api'
 import { LocalProvider, presetModels } from './providers/local'
 import { builtinTools } from './tools/builtin'
-import { loadSkills, makeUseSkillTool } from './skills/store'
-import type { AgentEvent, ApiConfig, ChatMessage, Provider, ToolDef } from './types'
+import { fsTools } from './tools/fs'
+import { gitTools } from './tools/git'
+import { webTools } from './tools/web'
+import { makeSpawnAgentTool } from './tools/multiagent'
+import { loadSkills, makeUseSkillTool, upsertSkill } from './skills/store'
+import { setStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
+import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Provider, SlashCommand, ToolDef } from './types'
 import { Composer } from './ui/Composer'
 import { MessageList, type DisplayItem } from './ui/MessageList'
 import { ModelPicker, type ProviderMode } from './ui/ModelPicker'
 import { usePersistedState } from './ui/usePersistedState'
 import { SkillsPanel } from './ui/SkillsPanel'
 import { McpPanel } from './ui/McpPanel'
+import { PasswordGate } from './ui/PasswordGate'
+import { SettingsPage } from './ui/SettingsPage'
+import { SkillsGallery } from './ui/SkillsGallery'
+import type { Skill } from './types'
 
 const localProvider = new LocalProvider()
+
+const DEFAULT_SETTINGS: AgentSettings = {
+  temperature: 0.7,
+  topP: 1.0,
+  maxTokens: 2048,
+  presencePenalty: 0,
+  frequencyPenalty: 0,
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { name: 'clear', description: 'Clear the chat history', icon: '🗑️' },
+  { name: 'settings', description: 'Open settings', icon: '⚙️' },
+  { name: 'gallery', description: 'Browse skills gallery', icon: '🏪' },
+  { name: 'skills', description: 'Manage skills', icon: '🎯' },
+  { name: 'mcp', description: 'Manage MCP servers', icon: '🔌' },
+  { name: 'help', description: 'Show available commands and tools', icon: '❓' },
+  { name: 'git status', description: 'Show git repository status', icon: '🔀' },
+  { name: 'ls', description: 'List files in current directory', icon: '📁' },
+  { name: 'agent', description: 'Spawn a sub-agent with a task', icon: '🤖' },
+]
+
+type View = 'chat' | 'settings' | 'gallery'
+type PasswordGateMode = 'setup' | 'unlock' | null
 
 export default function App() {
   const [mode, setMode] = usePersistedState<ProviderMode>('webgpu-agent.mode', 'local')
@@ -25,8 +57,13 @@ export default function App() {
   })
   const [systemPrompt, setSystemPrompt] = usePersistedState(
     'webgpu-agent.systemPrompt',
-    'You are a helpful agent running entirely in the user browser. Use tools when they help.',
+    'You are a helpful agent running entirely in the user browser. You have access to file system tools (fs_*), git tools (git_*), web tools (weather_lookup, web_search), and can spawn sub-agents (spawn_agent). Use tools when they help.',
   )
+  const [agentSettings, setAgentSettings] = usePersistedState<AgentSettings>(
+    'webgpu-agent.settings',
+    DEFAULT_SETTINGS,
+  )
+
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [display, setDisplay] = useState<DisplayItem[]>([])
   const [busy, setBusy] = useState(false)
@@ -35,12 +72,22 @@ export default function App() {
     text: '',
   })
   const [mcpTools, setMcpTools] = useState<ToolDef[]>([])
+  const [view, setView] = useState<View>('chat')
+  const [passwordGateMode, setPasswordGateMode] = useState<PasswordGateMode>(() => {
+    if (detectEncryptionEnabled()) return 'unlock'
+    return null
+  })
+  const [isUnlocked, setIsUnlocked] = useState(() => !detectEncryptionEnabled())
   const abortRef = useRef<AbortController | null>(null)
+  const providerRef = useRef<Provider | null>(null)
+  const toolsRef = useRef<ToolDef[]>([])
 
   if (!localModel) {
-    // default to first preset once
     setLocalModel(presetModels()[0] ?? '')
   }
+
+  const getProvider = (): Provider => providerRef.current!
+  const getTools = (): ToolDef[] => toolsRef.current
 
   const handleEvent = (e: AgentEvent) => {
     setDisplay((d) => {
@@ -57,12 +104,12 @@ export default function App() {
         if (last && last.kind === 'assistant' && last.streaming) next.pop()
         if (e.message.content.trim()) next.push({ kind: 'assistant', text: e.message.content })
       } else if (e.type === 'tool_start') {
-        next.push({ kind: 'tool', name: e.call.name, args: JSON.stringify(e.call.arguments) })
+        next.push({ kind: 'tool', name: e.call.name, args: JSON.stringify(e.call.arguments), startTime: Date.now() })
       } else if (e.type === 'tool_result') {
         for (let i = next.length - 1; i >= 0; i--) {
           const item = next[i]
           if (item.kind === 'tool' && item.result === undefined && item.name === e.call.name) {
-            next[i] = { ...item, result: e.result, isError: e.isError }
+            next[i] = { ...item, result: e.result, isError: e.isError, endTime: Date.now() }
             break
           }
         }
@@ -87,6 +134,20 @@ export default function App() {
     }
   }
 
+  const buildTools = (_provider: Provider): ToolDef[] => {
+    const skills = loadSkills()
+    const spawnTool = makeSpawnAgentTool(getProvider, getTools)
+    return [
+      ...builtinTools,
+      ...fsTools,
+      ...gitTools,
+      ...webTools,
+      makeUseSkillTool(() => skills),
+      spawnTool,
+      ...mcpTools,
+    ]
+  }
+
   const send = async (text: string) => {
     if (busy) return
     setBusy(true)
@@ -99,57 +160,172 @@ export default function App() {
     } else {
       provider = new ApiProvider(api)
     }
-    const tools: ToolDef[] = [...builtinTools, makeUseSkillTool(() => loadSkills()), ...mcpTools]
+    providerRef.current = provider
+    const tools = buildTools(provider)
+    toolsRef.current = tools
     const abort = new AbortController()
     abortRef.current = abort
-    const final = await runAgent(history, provider, tools, systemPrompt, handleEvent, abort.signal)
+    const final = await runAgent(history, provider, tools, systemPrompt, handleEvent, abort.signal, agentSettings)
     setMessages(final)
     setBusy(false)
   }
 
+  const handleCommand = (command: string, args: string) => {
+    switch (command) {
+      case 'clear':
+        setMessages([])
+        setDisplay([])
+        break
+      case 'settings':
+        setView('settings')
+        break
+      case 'gallery':
+        setView('gallery')
+        break
+      case 'help':
+        setDisplay((d) => [...d, {
+          kind: 'assistant',
+          text: `## Available Commands\n\n${SLASH_COMMANDS.map((c) => `**/${c.name}** — ${c.description}`).join('\n')}\n\n## Available Tools\n\nBuilt-in: get_time, fetch_url, run_javascript\nFile system: fs_read, fs_write, fs_list, fs_delete, fs_mkdir, fs_move\nGit: git_init, git_status, git_add, git_commit, git_log, git_push, git_pull, git_clone, git_diff\nWeb: weather_lookup, web_search\nAgent: spawn_agent, use_skill`,
+        }])
+        break
+      default:
+        // Pass other commands as text to the agent
+        send(`/${command}${args ? ' ' + args : ''}`)
+        break
+    }
+  }
+
+  const handlePasswordSubmit = (password: string) => {
+    setStorePassword(password)
+    setIsUnlocked(true)
+    setPasswordGateMode(null)
+  }
+
+  const handlePasswordSkip = () => {
+    setIsUnlocked(true)
+    setPasswordGateMode(null)
+  }
+
+  const handleChangePassword = () => {
+    setPasswordGateMode('setup')
+  }
+
+  const handleRemoveAllData = () => {
+    clearAllStoreData()
+    setMessages([])
+    setDisplay([])
+    window.location.reload()
+  }
+
+  const handleInstallSkill = (skill: Omit<Skill, 'id'>) => {
+    const skills = loadSkills()
+    const newSkill: Skill = { ...skill, id: crypto.randomUUID() }
+    upsertSkill(skills, newSkill)
+    setDisplay((d) => [...d, {
+      kind: 'assistant',
+      text: `✓ Skill "${skill.name}" installed successfully.`,
+    }])
+  }
+
+  if (passwordGateMode && !isUnlocked) {
+    return (
+      <PasswordGate
+        mode={passwordGateMode}
+        onSubmit={handlePasswordSubmit}
+        onSkip={passwordGateMode === 'setup' ? handlePasswordSkip : undefined}
+      />
+    )
+  }
+
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <h1>WebGPU Agent</h1>
-        <ModelPicker
-          mode={mode}
-          setMode={setMode}
-          localModel={localModel || ''}
-          setLocalModel={setLocalModel}
-          api={api}
-          setApi={setApi}
-          loadState={loadState}
-          onLoadLocal={loadLocal}
-          busy={busy}
-        />
-        <label className="dim">System prompt</label>
-        <textarea
-          className="system-prompt"
-          value={systemPrompt}
-          onChange={(e) => setSystemPrompt(e.target.value)}
-          rows={4}
-          disabled={busy}
-        />
-        <button
-          onClick={() => {
-            setMessages([])
-            setDisplay([])
-          }}
-          disabled={busy}
-        >
-          New chat
-        </button>
-        <SkillsPanel disabled={busy} />
-        <McpPanel disabled={busy} onToolsChange={setMcpTools} />
-      </aside>
-      <section className="chat">
-        <MessageList items={display} />
-        <Composer
-          busy={busy}
-          onSend={send}
-          onStop={() => abortRef.current?.abort()}
-        />
-      </section>
+    <div className="app" style={{ flexDirection: 'column' }}>
+      <div className="app-nav">
+        <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>WebGPU Agent</span>
+        <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>Chat</button>
+        <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
+        <button className={`nav-tab${view === 'gallery' ? ' active' : ''}`} onClick={() => setView('gallery')}>Gallery</button>
+        {!hasPassword() && (
+          <button
+            className="nav-tab"
+            onClick={() => setPasswordGateMode('setup')}
+            title="Enable encryption for your settings"
+            style={{ marginLeft: 'auto', color: 'var(--text-dim)' }}
+          >
+            🔓 Encrypt
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <aside className="sidebar">
+          <ModelPicker
+            mode={mode}
+            setMode={setMode}
+            localModel={localModel || ''}
+            setLocalModel={setLocalModel}
+            api={api}
+            setApi={setApi}
+            loadState={loadState}
+            onLoadLocal={loadLocal}
+            busy={busy}
+          />
+          <label className="dim">System prompt</label>
+          <textarea
+            className="system-prompt"
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={4}
+            disabled={busy}
+          />
+          <button
+            onClick={() => {
+              setMessages([])
+              setDisplay([])
+            }}
+            disabled={busy}
+          >
+            New chat
+          </button>
+          <SkillsPanel disabled={busy} onOpenGallery={() => setView('gallery')} />
+          <McpPanel disabled={busy} onToolsChange={setMcpTools} />
+        </aside>
+        <section className="chat" style={{ position: 'relative' }}>
+          {view === 'settings' && (
+            <SettingsPage
+              onClose={() => setView('chat')}
+              temperature={agentSettings.temperature}
+              topP={agentSettings.topP}
+              maxTokens={agentSettings.maxTokens}
+              presencePenalty={agentSettings.presencePenalty}
+              frequencyPenalty={agentSettings.frequencyPenalty}
+              theme="dark"
+              systemPrompt={systemPrompt}
+              onTemperature={(v) => setAgentSettings({ ...agentSettings, temperature: v })}
+              onTopP={(v) => setAgentSettings({ ...agentSettings, topP: v })}
+              onMaxTokens={(v) => setAgentSettings({ ...agentSettings, maxTokens: v })}
+              onPresencePenalty={(v) => setAgentSettings({ ...agentSettings, presencePenalty: v })}
+              onFrequencyPenalty={(v) => setAgentSettings({ ...agentSettings, frequencyPenalty: v })}
+              onTheme={() => {}}
+              onSystemPrompt={setSystemPrompt}
+              onChangePassword={handleChangePassword}
+              onRemoveAllData={handleRemoveAllData}
+            />
+          )}
+          {view === 'gallery' && (
+            <SkillsGallery
+              onInstall={handleInstallSkill}
+              onClose={() => setView('chat')}
+            />
+          )}
+          <MessageList items={display} />
+          <Composer
+            busy={busy}
+            onSend={send}
+            onStop={() => abortRef.current?.abort()}
+            onCommand={handleCommand}
+            commands={SLASH_COMMANDS}
+          />
+        </section>
+      </div>
     </div>
   )
 }

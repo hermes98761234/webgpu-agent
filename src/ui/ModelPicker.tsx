@@ -1,5 +1,5 @@
 import { API_PRESETS } from '../providers/api'
-import { presetModels, webgpuAvailable } from '../providers/local'
+import { allModels, webgpuAvailable } from '../providers/local'
 import type { ApiConfig } from '../types'
 
 export type ProviderMode = 'local' | 'api'
@@ -15,6 +15,9 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
   onLoadLocal: () => void
   busy: boolean
 }) {
+  const models = allModels()
+  const families = [...new Set(models.map((m) => m.family))]
+
   return (
     <div className="model-picker">
       <div className="row">
@@ -34,9 +37,22 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
           )}
           <div className="row">
             <select value={localModel} onChange={(e) => setLocalModel(e.target.value)} disabled={busy || loadState.status === 'loading'}>
-              {presetModels().map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
+              <optgroup label="⭐ Recommended">
+                {models.filter((m) => m.preferred).map((m) => (
+                  <option key={m.id} value={m.id}>{m.id}</option>
+                ))}
+              </optgroup>
+              {families.map((fam) => {
+                const group = models.filter((m) => !m.preferred && m.family === fam)
+                if (group.length === 0) return null
+                return (
+                  <optgroup key={fam} label={fam}>
+                    {group.map((m) => (
+                      <option key={m.id} value={m.id}>{m.id}</option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
             <button onClick={onLoadLocal} disabled={busy || loadState.status === 'loading' || !webgpuAvailable()}>
               {loadState.status === 'ready' ? 'Reload' : 'Load'}
@@ -62,7 +78,7 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
             </select>
             <input
               type="text"
-              placeholder="model id, e.g. gpt-4o-mini or qwen/qwen3-coder"
+              placeholder="model id, e.g. gpt-4o-mini"
               value={api.model}
               onChange={(e) => setApi({ ...api, model: e.target.value })}
               disabled={busy}
@@ -78,7 +94,7 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
             />
             <input
               type="password"
-              placeholder="API key (stored in localStorage)"
+              placeholder="API key"
               value={api.apiKey}
               onChange={(e) => setApi({ ...api, apiKey: e.target.value })}
               disabled={busy}

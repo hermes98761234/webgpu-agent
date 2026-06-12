@@ -26,6 +26,14 @@ export interface ChatResult {
   toolCalls: ToolCall[]
 }
 
+export interface AgentSettings {
+  temperature: number
+  topP: number
+  maxTokens: number
+  presencePenalty: number
+  frequencyPenalty: number
+}
+
 export interface Provider {
   supportsNativeTools: boolean
   chat(
@@ -33,6 +41,7 @@ export interface Provider {
     tools: ToolDef[],
     onDelta: (text: string) => void,
     signal?: AbortSignal,
+    settings?: AgentSettings,
   ): Promise<ChatResult>
 }
 
@@ -56,9 +65,16 @@ export interface McpServerConfig {
   url: string
 }
 
+export interface SlashCommand {
+  name: string
+  description: string
+  icon?: string
+}
+
 export type AgentEvent =
   | { type: 'assistant_delta'; text: string }
   | { type: 'assistant_message'; message: ChatMessage }
   | { type: 'tool_start'; call: ToolCall }
   | { type: 'tool_result'; call: ToolCall; result: string; isError: boolean }
   | { type: 'error'; error: string }
+  | { type: 'status'; text: string }

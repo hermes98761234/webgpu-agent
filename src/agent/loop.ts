@@ -1,4 +1,4 @@
-import type { AgentEvent, ChatMessage, Provider, ToolDef } from '../types'
+import type { AgentEvent, AgentSettings, ChatMessage, Provider, ToolDef } from '../types'
 import { buildToolSystemPrompt, parseToolCall } from './toolPrompt'
 
 const MAX_ITERATIONS = 10
@@ -10,6 +10,7 @@ export async function runAgent(
   systemPrompt: string,
   onEvent: (e: AgentEvent) => void,
   signal?: AbortSignal,
+  settings?: AgentSettings,
 ): Promise<ChatMessage[]> {
   const messages: ChatMessage[] = [...history]
   const toolMap = new Map(tools.map((t) => [t.name, t]))
@@ -28,6 +29,7 @@ export async function runAgent(
         provider.supportsNativeTools ? tools : [],
         (text) => onEvent({ type: 'assistant_delta', text }),
         signal,
+        settings,
       )
     } catch (e) {
       onEvent({ type: 'error', error: String(e) })
