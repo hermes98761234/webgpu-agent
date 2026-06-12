@@ -1,5 +1,5 @@
 import { API_PRESETS } from '../providers/api'
-import { allModels, webgpuAvailable } from '../providers/local'
+import { deviceModels, webgpuAvailable } from '../providers/local'
 import type { ApiConfig } from '../types'
 
 export type ProviderMode = 'local' | 'api'
@@ -15,7 +15,7 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
   onLoadLocal: () => void
   busy: boolean
 }) {
-  const models = allModels()
+  const models = deviceModels()
   const families = [...new Set(models.map((m) => m.family))]
 
   return (

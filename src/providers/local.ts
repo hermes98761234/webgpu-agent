@@ -60,9 +60,30 @@ function modelFamily(id: string): string {
 }
 
 export function presetModels(): string[] {
-  return allModels()
+  return deviceModels()
     .filter((m) => m.preferred)
     .map((m) => m.id)
+}
+
+const MOBILE_VRAM_LIMIT_MB = 3000
+
+export function isMobileDevice(): boolean {
+  return typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)
+}
+
+// Models the current device can realistically run. On mobile only small models
+// fit GPU memory, and load() swaps q4f16 ids for their q4f32 variants there —
+// so judge each model by the variant that would actually be loaded.
+export function deviceModels(): ModelInfo[] {
+  const models = allModels()
+  if (!isMobileDevice()) return models
+  const byId = new Map(prebuiltAppConfig.model_list.map((m) => [m.model_id, m]))
+  return models.filter((m) => {
+    const record = byId.get(resolveModelForDevice(m.id, false))
+    if (!record) return false
+    if (record.low_resource_required) return true
+    return record.vram_required_MB !== undefined && record.vram_required_MB <= MOBILE_VRAM_LIMIT_MB
+  })
 }
 
 export function webgpuAvailable(): boolean {
@@ -89,8 +110,7 @@ async function probeGpu(): Promise<GpuCaps> {
     const hasF16 = adapter.features.has('shader-f16')
     // Mobile GPU drivers (Adreno/Mali) often advertise shader-f16 but overflow
     // or produce NaNs in FP16 matmuls, turning model output into random tokens.
-    const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)
-    return { available: true, f16Trusted: hasF16 && !mobile }
+    return { available: true, f16Trusted: hasF16 && !isMobileDevice() }
   } catch {
     return { available: false, f16Trusted: false }
   }

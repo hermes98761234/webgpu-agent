@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { runAgent } from './agent/loop'
 import { DEFAULT_SYSTEM_PROMPT, initAgentHome, writeAgentMd } from './agenthome'
 import { ApiProvider } from './providers/api'
-import { LocalProvider, presetModels, webgpuAvailable, allModels } from './providers/local'
+import { LocalProvider, presetModels, webgpuAvailable, deviceModels } from './providers/local'
 import { builtinTools } from './tools/builtin'
 import { fsTools } from './tools/fs'
 import { gitTools } from './tools/git'
@@ -168,7 +168,7 @@ export default function App() {
       setPlugins(home.plugins)
       setSystemPromptState(home.systemPrompt)
       if (mode === 'local' && webgpuAvailable()) {
-        const models = allModels().map((m) => m.id)
+        const models = deviceModels().map((m) => m.id)
         let model = localModel || presetModels()[0] || ''
         if (model && !models.includes(model)) model = presetModels()[0] || ''
         if (model) {
