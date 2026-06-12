@@ -63,6 +63,32 @@ const fsWrite: ToolDef = {
   },
 }
 
+const fsCreate: ToolDef = {
+  name: 'fs_create',
+  description: 'Create a file (empty unless content is given), creating parent directories as needed.',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Absolute file path' },
+      content: { type: 'string', description: 'Initial file content (defaults to empty)' },
+    },
+    required: ['path'],
+  },
+  source: 'builtin',
+  async execute(args) {
+    try {
+      const path = String(args.path)
+      if (isProtected(path)) return `Error: creating file at system path '${path}' is not allowed`
+      const dir = path.substring(0, path.lastIndexOf('/')) || '/'
+      await ensureDir(dir)
+      await pfs.writeFile(path, String(args.content ?? ''), 'utf8')
+      return `Created: ${path}`
+    } catch (e) {
+      return `Error: ${String(e)}`
+    }
+  },
+}
+
 const fsList: ToolDef = {
   name: 'fs_list',
   description: 'List directory contents.',
@@ -190,4 +216,4 @@ const fsMove: ToolDef = {
   },
 }
 
-export const fsTools: ToolDef[] = [fsRead, fsWrite, fsList, fsDelete, fsMkdir, fsMove]
+export const fsTools: ToolDef[] = [fsRead, fsWrite, fsCreate, fsList, fsDelete, fsMkdir, fsMove]

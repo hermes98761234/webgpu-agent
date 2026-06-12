@@ -81,9 +81,19 @@ export class LocalProvider implements Provider {
       this.engine = null
       this.loadedModel = ''
     }
-    this.engine = await CreateMLCEngine(modelId, {
-      initProgressCallback: (p) => onProgress(p.text, p.progress),
-    })
+    this.engine = await CreateMLCEngine(
+      modelId,
+      {
+        initProgressCallback: (p) => onProgress(p.text, p.progress),
+      },
+      {
+        // Use a sliding window so long prompts don't throw ContextWindowSizeExceededError.
+        // MLC requires context_window_size: -1 when sliding_window_size is set.
+        context_window_size: -1,
+        sliding_window_size: 4096,
+        attention_sink_size: 4,
+      },
+    )
     this.loadedModel = modelId
   }
 
