@@ -7,6 +7,7 @@
 - **Local models via WebGPU** — Run open-source LLMs directly in your browser using `@mlc-ai/web-llm`. Model weights are cached in-browser; nothing leaves your machine.
 - **External API mode** — Connect to any OpenAI-compatible API: OpenAI, OpenRouter, or a custom base URL.
 - **Agent tool loop** — Built-in tools: `get_time`, `fetch_url`, and `run_javascript` (sandboxed in a Web Worker).
+- **Persistent memory** — Save and recall agent memories across chats with `memory_save` and `memory_delete`. Memories live in the browser's virtual filesystem and survive page reloads.
 - **User-defined skills** — Create, edit, and delete custom skills stored in `localStorage`, loaded via the `use_skill` tool.
 - **Remote MCP servers** — Connect to MCP servers over Streamable HTTP, with tool names automatically prefixed by server.
 
@@ -52,6 +53,24 @@ npm run preview  # preview production build
 | `src/skills/` | User-defined skills store (localStorage) |
 | `src/mcp/` | MCP client manager (Streamable HTTP) |
 | `src/ui/` | React UI components (chat, model picker, panels) |
+
+## Skills
+
+The system prompt includes a `# Skills` section listing every installed skill's name and description. When the model needs full instructions, it calls `use_skill` with the exact skill name to load the complete `SKILL.md` on demand. This progressive disclosure keeps prompts small while giving the agent access to detailed workflows.
+
+Skills live in `/home/user/.agent/skills/<slug>/SKILL.md` inside the browser's virtual filesystem (IndexedDB via `@isomorphic-git/lightning-fs`). User-created skills are managed through the **Skills** UI panel and persist across sessions.
+
+The catalog is built by `src/skills/store.ts` and injected into the system prompt by `src/agent/context.ts`.
+
+## Memory
+
+The agent has access to persistent file-based memory stored in the browser's virtual filesystem at `/home/user/.agent/memory/`. Each memory is a markdown file with `name` and `description` frontmatter. An index file, `MEMORY.md`, lists all saved memories.
+
+- **Save** — `memory_save` tool writes a new memory file and updates the index.
+- **Delete** — `memory_delete` tool removes a memory file and updates the index.
+- **Recall** — The `MEMORY.md` index is injected into the system prompt each run (via `src/agent/context.ts`); the agent reads individual memory files with `fs_read` as needed.
+
+Memory survives page reloads and new chats — it is backed by IndexedDB. The index and usage guidance are injected as a `# Memory` section in the system prompt so the agent always knows what it has remembered and how to manage it.
 
 ## Deployment
 
