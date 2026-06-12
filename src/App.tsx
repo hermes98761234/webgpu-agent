@@ -150,7 +150,7 @@ export default function App() {
       await localProvider.load(model, (text, progress) =>
         setLoadState({ status: 'loading', text: `${Math.round(progress * 100)}% — ${text}` }),
       )
-      setLoadState({ status: 'ready', text: `Loaded ${model}` })
+      setLoadState({ status: 'ready', text: `Loaded ${localProvider.loadedModel || model}` })
     } catch (e) {
       setLoadState({ status: 'error', text: String(e) })
     }

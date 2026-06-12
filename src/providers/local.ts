@@ -93,6 +93,7 @@ export function webgpuAvailable(): boolean {
 export interface GpuCaps {
   available: boolean
   f16Trusted: boolean
+  gpu: string
 }
 
 let capsPromise: Promise<GpuCaps> | null = null
@@ -103,21 +104,21 @@ export function detectGpuCaps(): Promise<GpuCaps> {
 }
 
 async function probeGpu(): Promise<GpuCaps> {
-  if (!webgpuAvailable()) return { available: false, f16Trusted: false }
+  if (!webgpuAvailable()) return { available: false, f16Trusted: false, gpu: 'none' }
   try {
     const adapter = await navigator.gpu.requestAdapter()
-    if (!adapter) return { available: false, f16Trusted: false }
+    if (!adapter) return { available: false, f16Trusted: false, gpu: 'no adapter' }
     const hasF16 = adapter.features.has('shader-f16')
     // Mobile GPU drivers (Adreno/Mali) often advertise shader-f16 but overflow
     // or produce NaNs in FP16 matmuls, turning model output into random tokens.
     // UA alone misses iPads (desktop UA) and "request desktop site", so also
     // check the adapter's vendor/architecture for known mobile GPUs.
     const info = (adapter as { info?: { vendor?: string; architecture?: string } }).info
-    const mobileGpu = /qualcomm|adreno|\barm\b|mali|samsung|xclipse|imagination|powervr/i
-      .test(`${info?.vendor ?? ''} ${info?.architecture ?? ''}`)
-    return { available: true, f16Trusted: hasF16 && !isMobileDevice() && !mobileGpu }
+    const gpu = `${info?.vendor ?? ''} ${info?.architecture ?? ''}`.trim() || 'unknown'
+    const mobileGpu = /qualcomm|adreno|\barm\b|mali|samsung|xclipse|imagination|powervr/i.test(gpu)
+    return { available: true, f16Trusted: hasF16 && !isMobileDevice() && !mobileGpu, gpu }
   } catch {
-    return { available: false, f16Trusted: false }
+    return { available: false, f16Trusted: false, gpu: 'probe failed' }
   }
 }
 

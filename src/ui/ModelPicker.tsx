@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { API_PRESETS } from '../providers/api'
-import { deviceModels, webgpuAvailable } from '../providers/local'
+import { detectGpuCaps, deviceModels, webgpuAvailable } from '../providers/local'
+import type { GpuCaps } from '../providers/local'
 import type { ApiConfig } from '../types'
 
 export type ProviderMode = 'local' | 'api'
@@ -17,6 +19,10 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
 }) {
   const models = deviceModels()
   const families = [...new Set(models.map((m) => m.family))]
+  const [caps, setCaps] = useState<GpuCaps | null>(null)
+  useEffect(() => {
+    void detectGpuCaps().then(setCaps)
+  }, [])
 
   return (
     <div className="model-picker">
@@ -59,6 +65,11 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
             </button>
           </div>
           {loadState.text && <p className={loadState.status === 'error' ? 'warn' : 'dim'}>{loadState.text}</p>}
+          {caps && (
+            <p className="dim">
+              GPU: {caps.gpu} · FP16 {caps.f16Trusted ? 'trusted' : 'untrusted — q4f32 models will be substituted'}
+            </p>
+          )}
         </div>
       )}
       {mode === 'api' && (
