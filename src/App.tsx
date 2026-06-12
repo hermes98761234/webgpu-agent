@@ -22,6 +22,7 @@ import { PasswordGate } from './ui/PasswordGate'
 import { SettingsPage } from './ui/SettingsPage'
 import { SkillsGallery } from './ui/SkillsGallery'
 import { PluginsPanel } from './ui/PluginsPanel'
+import { FileManager } from './ui/FileManager'
 
 const localProvider = new LocalProvider()
 
@@ -47,9 +48,10 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'git status', description: 'Show git repository status', icon: '🔀' },
   { name: 'ls', description: 'List files in current directory', icon: '📁' },
   { name: 'agent', description: 'Spawn a sub-agent with a task', icon: '🤖' },
+  { name: 'files', description: 'Browse and edit files', icon: '📂' },
 ]
 
-type View = 'chat' | 'settings' | 'gallery'
+type View = 'chat' | 'settings' | 'gallery' | 'files'
 type PasswordGateMode = 'setup' | 'unlock' | null
 
 const trimContext = (msgs: ChatMessage[], max: number): ChatMessage[] => {
@@ -226,6 +228,10 @@ export default function App() {
       setView('gallery')
       return
     }
+    if (command === 'files') {
+      setView('files')
+      return
+    }
     if (command === 'help') {
       setDisplay((d) => [...d, {
         kind: 'assistant',
@@ -301,6 +307,7 @@ export default function App() {
         <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>Chat</button>
         <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
         <button className={`nav-tab${view === 'gallery' ? ' active' : ''}`} onClick={() => setView('gallery')}>Gallery</button>
+        <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
         {!hasPassword() && (
           <button
             className="nav-tab"
@@ -380,6 +387,9 @@ export default function App() {
               onInstall={handleInstallSkill}
               onClose={() => setView('chat')}
             />
+          )}
+          {view === 'files' && (
+            <FileManager onClose={() => setView('chat')} />
           )}
           <MessageList items={display} />
           <Composer

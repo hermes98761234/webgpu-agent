@@ -98,15 +98,27 @@ export class LocalProvider implements Provider {
     const wire = messages
       .filter((m) => m.role !== 'tool')
       .map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content }))
-    const chunks = await this.engine.chat.completions.create({
+    const opts = {
       messages: wire,
-      stream: true,
+      stream: true as const,
       temperature: settings?.temperature,
       top_p: settings?.topP,
       max_tokens: settings?.maxTokens,
       presence_penalty: settings?.presencePenalty,
       frequency_penalty: settings?.frequencyPenalty,
-    })
+    }
+    let chunks
+    try {
+      chunks = await this.engine.chat.completions.create(opts)
+    } catch (e) {
+      if (String(e).includes('ContextWindowSizeExceeded')) {
+        const sys = wire.filter((m) => m.role === 'system')
+        const rest = wire.filter((m) => m.role !== 'system')
+        chunks = await this.engine.chat.completions.create({ ...opts, messages: [...sys, ...rest.slice(-4)] })
+      } else {
+        throw e
+      }
+    }
     let content = ''
     for await (const chunk of chunks) {
       if (signal?.aborted) break
