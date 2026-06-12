@@ -2,19 +2,69 @@ import { encrypt, decrypt, isEncryptedBlob } from './encrypted'
 
 const PREFIX = 'webgpu-agent.'
 const ENCRYPTION_KEY = 'webgpu-agent.encrypted'
+const PW_CHECK_KEY = 'webgpu-agent.pwcheck'
 
 let activePassword: string | null = null
 let isEncryptionEnabled = false
 
-export function setStorePassword(password: string): void {
+export async function setStorePassword(password: string): Promise<void> {
   if (password) {
+    const oldPassword = activePassword
+    if (oldPassword && oldPassword !== password) {
+      await reencryptAll(oldPassword, password)
+    }
     activePassword = password
     isEncryptionEnabled = true
     localStorage.setItem(ENCRYPTION_KEY, '1')
+    localStorage.setItem(PW_CHECK_KEY, await encrypt('ok', password))
   } else {
     activePassword = null
     isEncryptionEnabled = false
+    localStorage.removeItem(ENCRYPTION_KEY)
+    localStorage.removeItem(PW_CHECK_KEY)
   }
+}
+
+async function reencryptAll(oldPassword: string, newPassword: string): Promise<void> {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (!k || !k.startsWith(PREFIX) || k === ENCRYPTION_KEY || k === PW_CHECK_KEY) continue
+    const v = localStorage.getItem(k)
+    if (!v || !isEncryptedBlob(v)) continue
+    try {
+      const plain = await decrypt(v, oldPassword)
+      localStorage.setItem(k, await encrypt(plain, newPassword))
+    } catch {
+      // Value was encrypted with a different password; leave it untouched.
+    }
+  }
+}
+
+/** Check a password against stored encrypted data without unlocking the store. */
+export async function verifyStorePassword(password: string): Promise<boolean> {
+  const sentinel = localStorage.getItem(PW_CHECK_KEY)
+  if (sentinel && isEncryptedBlob(sentinel)) {
+    try {
+      await decrypt(sentinel, password)
+      return true
+    } catch {
+      return false
+    }
+  }
+  // Legacy data without a sentinel: verify against any encrypted item.
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (!k || !k.startsWith(PREFIX) || k === ENCRYPTION_KEY) continue
+    const v = localStorage.getItem(k)
+    if (!v || !isEncryptedBlob(v)) continue
+    try {
+      await decrypt(v, password)
+      return true
+    } catch {
+      return false
+    }
+  }
+  return true
 }
 
 export function isStoreLocked(): boolean {

@@ -133,6 +133,14 @@ export function MessageList({ items }: { items: DisplayItem[] }) {
   return (
     <div className="message-list">
       <style>{TYPING_STYLE}</style>
+      {items.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-icon">⚡</div>
+          <h2>WebGPU Agent</h2>
+          <p>An AI agent that runs entirely in your browser — with a file system, git, web tools, skills and sub-agents.</p>
+          <p>Pick a model in the sidebar, then ask anything. Type <code>/</code> for commands, or <code>/help</code> to see everything available.</p>
+        </div>
+      )}
       {items.map((item, i) => {
         if (item.kind === 'user') {
           return (

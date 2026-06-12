@@ -9,6 +9,8 @@ interface GallerySkill {
 interface SkillsGalleryProps {
   onInstall: (skill: GallerySkill) => void
   onClose: () => void
+  /** Names of skills already installed, so they show as installed after a refresh. */
+  installedNames?: string[]
 }
 
 const FALLBACK_SKILLS: GallerySkill[] = [
@@ -39,11 +41,12 @@ const FALLBACK_SKILLS: GallerySkill[] = [
   },
 ]
 
-export function SkillsGallery({ onInstall, onClose }: SkillsGalleryProps) {
+export function SkillsGallery({ onInstall, onClose, installedNames = [] }: SkillsGalleryProps) {
   const [skills, setSkills] = useState<GallerySkill[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [installed, setInstalled] = useState<Set<string>>(new Set())
+  const isInstalled = (name: string) => installed.has(name) || installedNames.includes(name)
 
   useEffect(() => {
     const url = query.trim()
@@ -166,7 +169,7 @@ export function SkillsGallery({ onInstall, onClose }: SkillsGalleryProps) {
                 <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{skill.name}</div>
                 <div style={{ color: 'var(--text-dim)', fontSize: '13px', lineHeight: 1.4 }}>{skill.description}</div>
               </div>
-              {installed.has(skill.name) ? (
+              {isInstalled(skill.name) ? (
                 <button style={installedBtn} disabled>Installed ✓</button>
               ) : (
                 <button

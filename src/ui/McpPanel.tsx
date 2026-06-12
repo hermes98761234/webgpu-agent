@@ -24,6 +24,11 @@ export function McpPanel({ disabled, onToolsChange }: {
   }
 
   const connect = async (cfg: McpServerConfig) => {
+    const existing = connections.current.get(cfg.id)
+    if (existing) {
+      connections.current.delete(cfg.id)
+      void disconnectMcp(existing)
+    }
     setStatus((s) => ({ ...s, [cfg.id]: 'connecting…' }))
     try {
       const conn = await connectMcpServer(cfg)
@@ -47,11 +52,15 @@ export function McpPanel({ disabled, onToolsChange }: {
     saveMcpServers(next)
   }
 
+  // Auto-connect saved servers on mount so their tools are available immediately.
   useEffect(() => {
     const conns = connections.current
+    for (const s of loadMcpServers()) void connect(s)
     return () => {
       for (const conn of conns.values()) void disconnectMcp(conn)
+      conns.clear()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

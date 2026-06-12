@@ -111,12 +111,22 @@ export class LocalProvider implements Provider {
     try {
       chunks = await this.engine.chat.completions.create(opts)
     } catch (e) {
-      if (String(e).includes('ContextWindowSizeExceeded')) {
-        const sys = wire.filter((m) => m.role === 'system')
-        const rest = wire.filter((m) => m.role !== 'system')
-        chunks = await this.engine.chat.completions.create({ ...opts, messages: [...sys, ...rest.slice(-4)] })
-      } else {
-        throw e
+      if (!String(e).includes('ContextWindowSizeExceeded')) throw e
+      // Trim progressively, starting from the user's context budget, until it fits.
+      const sys = wire.filter((m) => m.role === 'system')
+      const rest = wire.filter((m) => m.role !== 'system')
+      let keep = Math.min(rest.length, Math.max(2, Math.floor((settings?.maxContextMessages ?? 8) / 2)))
+      for (;;) {
+        try {
+          chunks = await this.engine.chat.completions.create({ ...opts, messages: [...sys, ...rest.slice(-keep)] })
+          break
+        } catch (e2) {
+          if (keep > 2 && String(e2).includes('ContextWindowSizeExceeded')) {
+            keep = Math.floor(keep / 2)
+          } else {
+            throw e2
+          }
+        }
       }
     }
     let content = ''

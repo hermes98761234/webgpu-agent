@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebGPU Agent</title>
+    <script>
+      // Apply the persisted theme before first paint to avoid a flash.
+      try {
+        var theme = JSON.parse(localStorage.getItem('webgpu-agent.theme') || '"dark"')
+        document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark'
+      } catch (e) { /* default dark */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>

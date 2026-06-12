@@ -2,7 +2,8 @@ import { useState } from 'react'
 
 interface PasswordGateProps {
   mode: 'setup' | 'unlock'
-  onSubmit: (password: string) => void
+  /** Return an error message string to keep the gate open, or null/void on success. */
+  onSubmit: (password: string) => void | Promise<string | null | void>
   onSkip?: () => void
 }
 
@@ -10,8 +11,10 @@ export function PasswordGate({ mode, onSubmit, onSkip }: PasswordGateProps) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitting) return
     setError('')
     if (mode === 'setup') {
       if (password.length < 8) {
@@ -27,7 +30,13 @@ export function PasswordGate({ mode, onSubmit, onSkip }: PasswordGateProps) {
       setError('Please enter a password.')
       return
     }
-    onSubmit(password)
+    setSubmitting(true)
+    try {
+      const result = await onSubmit(password)
+      if (typeof result === 'string') setError(result)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const overlayStyle: React.CSSProperties = {
@@ -104,7 +113,7 @@ export function PasswordGate({ mode, onSubmit, onSkip }: PasswordGateProps) {
           style={inputStyle}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={(e) => { if (e.key === 'Enter') void handleSubmit() }}
           autoFocus
         />
 
@@ -115,14 +124,14 @@ export function PasswordGate({ mode, onSubmit, onSkip }: PasswordGateProps) {
             style={inputStyle}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleSubmit() }}
           />
         )}
 
         {error && <p style={errorStyle}>{error}</p>}
 
-        <button onClick={handleSubmit}>
-          {mode === 'setup' ? 'Encrypt & Save' : 'Unlock'}
+        <button onClick={() => void handleSubmit()} disabled={submitting}>
+          {submitting ? 'Working…' : mode === 'setup' ? 'Encrypt & Save' : 'Unlock'}
         </button>
 
         {mode === 'setup' && onSkip && (

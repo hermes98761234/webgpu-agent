@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { runAgent } from './agent/loop'
 import { ApiProvider } from './providers/api'
 import { LocalProvider, presetModels } from './providers/local'
@@ -9,8 +9,9 @@ import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
 import { loadSkills, makeUseSkillTool, upsertSkill } from './skills/store'
 import { seedDefaultSkills } from './skills/defaults'
-import { setStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
+import { setStorePassword, verifyStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
 import { loadPlugins } from './plugins/store'
+import { loadMcpServers } from './mcp/manager'
 import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Plugin, Provider, Skill, SlashCommand, ToolDef } from './types'
 import { Composer } from './ui/Composer'
 import { MessageList, type DisplayItem } from './ui/MessageList'
@@ -72,12 +73,17 @@ export default function App() {
   })
   const [systemPrompt, setSystemPrompt] = usePersistedState(
     'webgpu-agent.systemPrompt',
-    'You are a helpful agent running entirely in the user browser. You have access to file system tools (fs_*), git tools (git_*), web tools (weather_lookup, web_search), and can spawn sub-agents (spawn_agent). Use tools when they help.',
+    'You are a helpful agent running entirely in the user browser. You have access to built-in tools (get_time, fetch_url, run_javascript), file system tools (fs_*), git tools (git_*), web tools (weather_lookup, web_search), skills (use_skill), and can spawn sub-agents (spawn_agent). Connected MCP servers may add more tools. Use tools when they help; prefer acting over asking.',
   )
   const [agentSettings, setAgentSettings] = usePersistedState<AgentSettings>(
     'webgpu-agent.settings',
     DEFAULT_SETTINGS,
   )
+  const [theme, setTheme] = usePersistedState<'dark' | 'light'>('webgpu-agent.theme', 'dark')
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [display, setDisplay] = useState<DisplayItem[]>([])
@@ -165,7 +171,7 @@ export default function App() {
           }))
         ),
     ]
-    const spawnTool = makeSpawnAgentTool(getProvider, getTools)
+    const spawnTool = makeSpawnAgentTool(getProvider, getTools, () => abortRef.current?.signal)
     return [
       ...builtinTools,
       ...fsTools,
@@ -195,9 +201,15 @@ export default function App() {
     toolsRef.current = tools
     const abort = new AbortController()
     abortRef.current = abort
-    const final = await runAgent(history, provider, tools, systemPrompt, handleEvent, abort.signal, agentSettings)
-    setMessages(final)
-    setBusy(false)
+    try {
+      const final = await runAgent(history, provider, tools, systemPrompt, handleEvent, abort.signal, agentSettings)
+      setMessages(final)
+    } catch (e) {
+      handleEvent({ type: 'error', error: String(e) })
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+    }
   }
 
   const allCommands: SlashCommand[] = [
@@ -233,9 +245,50 @@ export default function App() {
       return
     }
     if (command === 'help') {
+      const tools = buildTools()
+      const groupOf = (t: ToolDef): string => {
+        if (t.source === 'mcp') return 'MCP'
+        if (t.name.startsWith('fs_')) return 'File system'
+        if (t.name.startsWith('git_')) return 'Git'
+        if (t.name === 'weather_lookup' || t.name === 'web_search') return 'Web'
+        if (t.name === 'spawn_agent' || t.name === 'use_skill') return 'Agent'
+        return 'Built-in'
+      }
+      const groups = new Map<string, ToolDef[]>()
+      for (const t of tools) {
+        const g = groupOf(t)
+        groups.set(g, [...(groups.get(g) ?? []), t])
+      }
+      const toolText = [...groups.entries()]
+        .map(([g, ts]) => `**${g}:** ${ts.map((t) => `\`${t.name}\``).join(', ')}`)
+        .join('\n')
       setDisplay((d) => [...d, {
         kind: 'assistant',
-        text: `## Available Commands\n\n${allCommands.map((c) => `**/${c.name}** — ${c.description}`).join('\n')}\n\n## Available Tools\n\nBuilt-in: get_time, fetch_url, run_javascript\nFile system: fs_read, fs_write, fs_list, fs_delete, fs_mkdir, fs_move\nGit: git_init, git_status, git_add, git_commit, git_log, git_push, git_pull, git_clone, git_diff\nWeb: weather_lookup, web_search\nAgent: spawn_agent, use_skill`,
+        text: `## Available Commands\n\n${allCommands.map((c) => `**/${c.name}** — ${c.description}`).join('\n')}\n\n## Available Tools\n\n${toolText}`,
+      }])
+      return
+    }
+    if (command === 'skills') {
+      const lines = skills.length
+        ? skills.map((s) => `**${s.name}** — ${s.description}`).join('\n')
+        : '*No skills installed yet.*'
+      setDisplay((d) => [...d, {
+        kind: 'assistant',
+        text: `## Installed Skills\n\n${lines}\n\nManage skills in the sidebar panel, or browse the gallery with **/gallery**.`,
+      }])
+      return
+    }
+    if (command === 'mcp') {
+      const servers = loadMcpServers()
+      const serverLines = servers.length
+        ? servers.map((s) => `**${s.name}** — ${s.url}`).join('\n')
+        : '*No MCP servers configured. Add one in the "MCP servers" panel in the sidebar.*'
+      const toolLines = mcpTools.length
+        ? mcpTools.map((t) => `\`${t.name}\` — ${t.description}`).join('\n')
+        : '*No MCP tools connected.*'
+      setDisplay((d) => [...d, {
+        kind: 'assistant',
+        text: `## MCP Servers\n\n${serverLines}\n\n## Connected MCP Tools\n\n${toolLines}`,
       }])
       return
     }
@@ -259,10 +312,15 @@ export default function App() {
     send(`/${command}${args ? ' ' + args : ''}`)
   }
 
-  const handlePasswordSubmit = (password: string) => {
-    setStorePassword(password)
+  const handlePasswordSubmit = async (password: string): Promise<string | null> => {
+    if (passwordGateMode === 'unlock') {
+      const ok = await verifyStorePassword(password)
+      if (!ok) return 'Incorrect password — please try again.'
+    }
+    await setStorePassword(password)
     setIsUnlocked(true)
     setPasswordGateMode(null)
+    return null
   }
 
   const handlePasswordSkip = () => {
@@ -368,7 +426,7 @@ export default function App() {
               presencePenalty={agentSettings.presencePenalty}
               frequencyPenalty={agentSettings.frequencyPenalty}
               maxContextMessages={agentSettings.maxContextMessages}
-              theme="dark"
+              theme={theme}
               systemPrompt={systemPrompt}
               onTemperature={(v) => setAgentSettings({ ...agentSettings, temperature: v })}
               onTopP={(v) => setAgentSettings({ ...agentSettings, topP: v })}
@@ -376,7 +434,7 @@ export default function App() {
               onPresencePenalty={(v) => setAgentSettings({ ...agentSettings, presencePenalty: v })}
               onFrequencyPenalty={(v) => setAgentSettings({ ...agentSettings, frequencyPenalty: v })}
               onMaxContextMessages={(v) => setAgentSettings({ ...agentSettings, maxContextMessages: v })}
-              onTheme={() => {}}
+              onTheme={setTheme}
               onSystemPrompt={setSystemPrompt}
               onChangePassword={handleChangePassword}
               onRemoveAllData={handleRemoveAllData}
@@ -386,19 +444,24 @@ export default function App() {
             <SkillsGallery
               onInstall={handleInstallSkill}
               onClose={() => setView('chat')}
+              installedNames={skills.map((s) => s.name)}
             />
           )}
           {view === 'files' && (
             <FileManager onClose={() => setView('chat')} />
           )}
-          <MessageList items={display} />
-          <Composer
-            busy={busy}
-            onSend={send}
-            onStop={() => abortRef.current?.abort()}
-            onCommand={handleCommand}
-            commands={allCommands}
-          />
+          {view === 'chat' && (
+            <>
+              <MessageList items={display} />
+              <Composer
+                busy={busy}
+                onSend={send}
+                onStop={() => abortRef.current?.abort()}
+                onCommand={handleCommand}
+                commands={allCommands}
+              />
+            </>
+          )}
         </section>
       </div>
       {passwordGateMode === 'setup' && (

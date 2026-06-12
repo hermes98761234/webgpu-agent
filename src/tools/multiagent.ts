@@ -4,6 +4,7 @@ import type { ToolDef, Provider } from '../types'
 export function makeSpawnAgentTool(
   getProvider: () => Provider,
   getTools: () => ToolDef[],
+  getSignal?: () => AbortSignal | undefined,
 ): ToolDef {
   return {
     name: 'spawn_agent',
@@ -23,7 +24,6 @@ export function makeSpawnAgentTool(
       const systemPrompt = args.system_prompt ? String(args.system_prompt) : ''
       const allTools = getTools()
       const subTools = allTools.filter((t) => t.name !== 'spawn_agent')
-      const controller = new AbortController()
       let finalContent = ''
       const messages = await runAgent(
         [{ role: 'user', content: task }],
@@ -35,7 +35,8 @@ export function makeSpawnAgentTool(
             finalContent = event.message.content
           }
         },
-        controller.signal,
+        // Inherit the parent agent's abort signal so Stop cancels sub-agents too.
+        getSignal?.(),
       )
       if (!finalContent) {
         const last = [...messages].reverse().find((m) => m.role === 'assistant')

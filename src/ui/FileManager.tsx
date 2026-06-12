@@ -70,7 +70,9 @@ export function FileManager({ onClose }: Props) {
   }, [path])
 
   useEffect(() => {
-    refresh()
+    // Defer so the synchronous setState inside refresh() runs outside the effect body.
+    const id = window.setTimeout(() => void refresh(), 0)
+    return () => window.clearTimeout(id)
   }, [refresh])
 
   const navigate = (name: string) => {
