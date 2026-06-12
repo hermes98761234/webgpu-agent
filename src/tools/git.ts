@@ -25,12 +25,12 @@ async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
       body: bodyInit,
     })
     const buffer = new Uint8Array(await response.arrayBuffer())
-    const responseBody: AsyncIterableIterator<Uint8Array> = (function* () { yield buffer })()
+    async function* responseBody(): AsyncIterableIterator<Uint8Array> { yield buffer }
     return {
       url: req.url,
       method: req.method,
       headers: Object.fromEntries(response.headers.entries()),
-      body: responseBody,
+      body: responseBody(),
       statusCode: response.status,
       statusMessage: response.statusText,
     }
