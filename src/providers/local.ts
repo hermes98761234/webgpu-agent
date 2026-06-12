@@ -110,7 +110,12 @@ async function probeGpu(): Promise<GpuCaps> {
     const hasF16 = adapter.features.has('shader-f16')
     // Mobile GPU drivers (Adreno/Mali) often advertise shader-f16 but overflow
     // or produce NaNs in FP16 matmuls, turning model output into random tokens.
-    return { available: true, f16Trusted: hasF16 && !isMobileDevice() }
+    // UA alone misses iPads (desktop UA) and "request desktop site", so also
+    // check the adapter's vendor/architecture for known mobile GPUs.
+    const info = (adapter as { info?: { vendor?: string; architecture?: string } }).info
+    const mobileGpu = /qualcomm|adreno|\barm\b|mali|samsung|xclipse|imagination|powervr/i
+      .test(`${info?.vendor ?? ''} ${info?.architecture ?? ''}`)
+    return { available: true, f16Trusted: hasF16 && !isMobileDevice() && !mobileGpu }
   } catch {
     return { available: false, f16Trusted: false }
   }
