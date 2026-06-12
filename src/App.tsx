@@ -9,7 +9,7 @@ import { gitTools } from './tools/git'
 import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
 import { makeUseSkillTool } from './skills/store'
-import { buildAgentSystemPrompt } from './agent/context'
+import { buildAgentSystemPrompt, buildDebugPrompt } from './agent/context'
 import { makeMemoryTools, readAllMemories } from './memory/store'
 import { setStorePassword, verifyStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
 import { getMcpServersCached } from './mcp/manager'
@@ -465,6 +465,11 @@ export default function App() {
               onSystemPrompt={setSystemPrompt}
               onChangePassword={handleChangePassword}
               onRemoveAllData={handleRemoveAllData}
+              onGetFullPrompt={async () => {
+                const { index: memIdx, files: memFiles } = await readAllMemories()
+                const tools = buildTools()
+                return buildDebugPrompt(systemPrompt, getAllSkills(), memIdx, memFiles, tools)
+              }}
             />
           )}
           {view === 'files' && (

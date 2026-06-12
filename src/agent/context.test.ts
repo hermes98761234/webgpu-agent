@@ -44,7 +44,8 @@ describe('buildMemorySection', () => {
 describe('buildAgentSystemPrompt', () => {
   it('joins base, skills and memory sections', () => {
     const out = buildAgentSystemPrompt('Base prompt.', skills, '')
-    expect(out.startsWith('Base prompt.')).toBe(true)
+    expect(out).toContain('Current time:')
+    expect(out).toContain('Base prompt.')
     expect(out).toContain('# Skills')
     expect(out).toContain('# Memory')
   })

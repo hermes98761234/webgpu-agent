@@ -20,6 +20,7 @@ interface SettingsPageProps {
   onSystemPrompt: (v: string) => void
   onChangePassword: () => void
   onRemoveAllData: () => void
+  onGetFullPrompt: () => Promise<string>
 }
 
 export function SettingsPage(props: SettingsPageProps) {
@@ -29,11 +30,23 @@ export function SettingsPage(props: SettingsPageProps) {
     theme, systemPrompt,
     onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty, onMaxContextMessages,
     onTheme, onSystemPrompt,
-    onChangePassword, onRemoveAllData,
+    onChangePassword, onRemoveAllData, onGetFullPrompt,
   } = props
 
   const [confirmText, setConfirmText] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [debugPrompt, setDebugPrompt] = useState<string | null>(null)
+  const [debugLoading, setDebugLoading] = useState(false)
+
+  async function handleDebug() {
+    setDebugLoading(true)
+    try {
+      const full = await onGetFullPrompt()
+      setDebugPrompt(full)
+    } finally {
+      setDebugLoading(false)
+    }
+  }
 
   const overlayStyle: React.CSSProperties = {
     position: 'absolute',
@@ -258,7 +271,16 @@ export function SettingsPage(props: SettingsPageProps) {
 
         {/* System Prompt */}
         <div style={sectionStyle}>
-          <p style={sectionTitle}>System Prompt</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={sectionTitle}>System Prompt</p>
+            <button
+              style={{ ...secondaryBtn, fontSize: '12px', padding: '3px 10px', alignSelf: 'auto' }}
+              onClick={() => void handleDebug()}
+              disabled={debugLoading}
+            >
+              {debugLoading ? '…' : 'Debug'}
+            </button>
+          </div>
           <textarea
             rows={6}
             style={{ width: '100%', resize: 'vertical' }}
@@ -319,6 +341,52 @@ export function SettingsPage(props: SettingsPageProps) {
           )}
         </div>
       </div>
+
+      {debugPrompt !== null && (
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'stretch',
+          }}
+          onClick={() => setDebugPrompt(null)}
+        >
+          <div
+            style={{
+              margin: '32px auto',
+              width: '90%',
+              maxWidth: '860px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <span style={{ fontWeight: 600, fontSize: '14px' }}>Full Prompt (sent to model)</span>
+              <button style={closeBtn} onClick={() => setDebugPrompt(null)}>×</button>
+            </div>
+            <pre
+              style={{
+                flex: 1,
+                margin: 0,
+                padding: '16px',
+                overflowY: 'auto',
+                fontSize: '12px',
+                lineHeight: 1.6,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                color: 'var(--text)',
+              }}
+            >
+              {debugPrompt}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

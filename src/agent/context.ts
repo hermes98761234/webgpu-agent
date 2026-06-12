@@ -1,5 +1,19 @@
-import type { Skill } from '../types'
+import type { Skill, ToolDef } from '../types'
 import type { MemoryFile } from '../memory/store'
+
+function buildTimeSection(): string {
+  const now = new Date()
+  const formatted = now.toLocaleString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })
+  return `Current time: ${formatted}`
+}
 
 /** Skill catalog for the system prompt: headers only; full body loads via use_skill. */
 export function buildSkillsSection(skills: Skill[]): string {
@@ -49,7 +63,28 @@ export function buildAgentSystemPrompt(
   memoryIndex: string,
   memoryFiles: MemoryFile[] = [],
 ): string {
-  return [base.trim(), buildSkillsSection(skills), buildMemorySection(memoryIndex, memoryFiles)]
+  return [
+    buildTimeSection(),
+    base.trim(),
+    buildSkillsSection(skills),
+    buildMemorySection(memoryIndex, memoryFiles),
+  ]
     .filter(Boolean)
     .join('\n\n')
+}
+
+/** Build the full debug view: system prompt + tool list. */
+export function buildDebugPrompt(
+  base: string,
+  skills: Skill[],
+  memoryIndex: string,
+  memoryFiles: MemoryFile[],
+  tools: ToolDef[],
+): string {
+  const systemPrompt = buildAgentSystemPrompt(base, skills, memoryIndex, memoryFiles)
+  const toolList =
+    tools.length === 0
+      ? '(none)'
+      : tools.map((t) => `- ${t.name}: ${t.description ?? ''}`).join('\n')
+  return `${systemPrompt}\n\n# Tools\n\n${toolList}`
 }
