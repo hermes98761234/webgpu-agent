@@ -79,7 +79,7 @@ describe('skill store (files under /home/user/.agent/skills)', () => {
 describe('use_skill tool', () => {
   it('returns instructions for a known skill', async () => {
     const tool = makeUseSkillTool(() => [skill])
-    expect(tool.description).toContain('haiku')
+    expect(tool.description).toContain('# Skills')
     const out = await tool.execute({ name: 'haiku' })
     expect(out).toContain('5-7-5')
   })

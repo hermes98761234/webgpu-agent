@@ -86,13 +86,10 @@ export function deleteSkill(skills: Skill[], id: string): Skill[] {
 }
 
 export function makeUseSkillTool(getSkills: () => Skill[]): ToolDef {
-  const catalog = getSkills()
-  const listing = catalog.length
-    ? catalog.map((s) => `${s.name} (${s.description})`).join('; ')
-    : 'none yet'
   return {
     name: 'use_skill',
-    description: `Load the full instructions of a user-defined skill by name, then follow them. Available skills: ${listing}`,
+    description:
+      'Load the full instructions of a skill by its exact name and follow them. The skill catalog (names + descriptions) is in the # Skills section of your system prompt.',
     parameters: {
       type: 'object',
       properties: { name: { type: 'string', description: 'Exact skill name' } },
