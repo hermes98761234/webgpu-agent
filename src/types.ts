@@ -64,6 +64,8 @@ export interface McpServerConfig {
   id: string
   name: string
   url: string
+  /** Optional CORS proxy: a prefix URL, or a template containing "{url}". */
+  proxy?: string
 }
 
 export interface SlashCommand {

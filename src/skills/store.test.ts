@@ -1,17 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { deleteSkill, loadSkills, makeUseSkillTool, upsertSkill } from './store'
+import { files, resetMemfs } from '../test/memfs'
 import type { Skill } from '../types'
+import { deleteSkill, loadSkills, makeUseSkillTool, slugify, upsertSkill, writeSkillFiles } from './store'
 
-const mem = new Map<string, string>()
-vi.stubGlobal('localStorage', {
-  getItem: (k: string) => mem.get(k) ?? null,
-  setItem: (k: string, v: string) => {
-    mem.set(k, v)
-  },
-  removeItem: (k: string) => {
-    mem.delete(k)
-  },
-})
+vi.mock('../fs/setup', () => import('../test/memfs'))
 
 const skill: Skill = {
   id: 's1',
@@ -19,28 +11,68 @@ const skill: Skill = {
   description: 'Write haiku',
   instructions: 'Always answer in 5-7-5 haiku form.',
 }
+// upsertSkill re-keys skills by slug(name)
+const saved: Skill = { ...skill, id: 'haiku' }
 
 beforeEach(() => {
-  mem.clear()
+  resetMemfs()
 })
 
-describe('skill store', () => {
-  it('loads empty list initially', () => {
-    expect(loadSkills()).toEqual([])
+describe('slugify', () => {
+  it('produces fs-safe directory names', () => {
+    expect(slugify('File System')).toBe('file-system')
+    expect(slugify('  Héllo!! World ')).toBe('h-llo-world')
+    expect(slugify('!!!')).toBe('skill')
+  })
+})
+
+describe('skill store (files under /home/user/.agent/skills)', () => {
+  it('loads empty list initially', async () => {
+    expect(await loadSkills()).toEqual([])
   })
 
-  it('upserts and persists', () => {
-    upsertSkill([], skill)
-    expect(loadSkills()).toEqual([skill])
-    const updated = { ...skill, description: 'changed' }
-    upsertSkill(loadSkills(), updated)
-    expect(loadSkills()).toEqual([updated])
+  it('writes SKILL.md with frontmatter and reloads it', async () => {
+    await writeSkillFiles(saved)
+    const raw = files.get('/home/user/.agent/skills/haiku/SKILL.md')
+    expect(raw).toContain('name: haiku')
+    expect(raw).toContain('description: Write haiku')
+    expect(raw).toContain('5-7-5')
+    expect(await loadSkills()).toEqual([saved])
   })
 
-  it('deletes', () => {
-    upsertSkill([], skill)
-    deleteSkill(loadSkills(), 's1')
-    expect(loadSkills()).toEqual([])
+  it('upserts: returns the new list and persists to files', async () => {
+    const list = upsertSkill([], skill)
+    expect(list).toEqual([saved])
+    await vi.waitFor(async () => {
+      expect(await loadSkills()).toEqual([saved])
+    })
+    const updated = { ...saved, description: 'changed' }
+    expect(upsertSkill(list, updated)).toEqual([updated])
+    await vi.waitFor(async () => {
+      expect(await loadSkills()).toEqual([updated])
+    })
+  })
+
+  it('renaming moves the skill to a new directory', async () => {
+    const list = upsertSkill([], skill)
+    await vi.waitFor(async () => {
+      expect(await loadSkills()).toHaveLength(1)
+    })
+    upsertSkill(list, { ...saved, name: 'Haiku Poems' })
+    await vi.waitFor(async () => {
+      expect(await loadSkills()).toEqual([{ ...saved, name: 'Haiku Poems', id: 'haiku-poems' }])
+    })
+  })
+
+  it('deletes', async () => {
+    const list = upsertSkill([], skill)
+    await vi.waitFor(async () => {
+      expect(await loadSkills()).toHaveLength(1)
+    })
+    expect(deleteSkill(list, 'haiku')).toEqual([])
+    await vi.waitFor(async () => {
+      expect(await loadSkills()).toEqual([])
+    })
   })
 })
 

@@ -141,12 +141,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* Model picker groups */
 .model-group-label { font-size: 11px; color: var(--text-dim); padding: 4px 8px; background: var(--bg); pointer-events: none; }
 
-/* Skills gallery */
-.gallery-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
-.gallery-item-info { flex: 1; }
-.gallery-item-name { font-weight: 600; font-size: 14px; }
-.gallery-item-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-
 /* Slider track */
 input[type=range] { height: 4px; cursor: pointer; }
 

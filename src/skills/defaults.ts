@@ -1,9 +1,8 @@
 import type { Skill } from '../types'
-import { loadSkills, saveSkills } from './store'
 
 export const DEFAULT_SKILLS: Skill[] = [
   {
-    id: 'builtin-fs',
+    id: 'file-system',
     name: 'File System',
     description: 'Create, read, update, delete and navigate files using fs_ tools',
     instructions: `# File System Skill
@@ -62,6 +61,9 @@ fs_move { "from": "/myproject/oldname.ts", "to": "/myproject/newname.ts" }
 - \`fs_write\` auto-creates parent directories; you don't need \`fs_mkdir\` before writing a nested file.
 - Files larger than 50 KB are truncated on read — split big files if you need to process them fully.
 - The filesystem is per-browser and persists in IndexedDB under the key \`webgpu-agent-fs\`.
+- The agent's own configuration lives in \`/home/user/.agent\`: \`agent.md\` (system prompt),
+  \`skills/<name>/SKILL.md\`, \`plugins/*.json\`, and \`mcp.json\`. Editing these files changes
+  the agent's behavior (skills take effect after reload).
 - There is no undo — deleted files are gone. Confirm with the user before mass deletion.
 
 ## Typical Session
@@ -79,7 +81,7 @@ User: "Create a hello-world Node project"
 `,
   },
   {
-    id: 'builtin-git',
+    id: 'git',
     name: 'Git',
     description: 'Initialize repos, commit, push/pull, clone, and deploy with git_ tools',
     instructions: `# Git Skill
@@ -194,12 +196,3 @@ browser's \`fetch\`. GitHub's API supports CORS for authenticated requests, so p
 `,
   },
 ]
-
-/** Seed skills that don't already exist (by name). Idempotent. */
-export function seedDefaultSkills(): void {
-  const existing = loadSkills()
-  const names = new Set(existing.map((s) => s.name))
-  const toAdd = DEFAULT_SKILLS.filter((s) => !names.has(s.name))
-  if (toAdd.length === 0) return
-  saveSkills([...toAdd, ...existing])
-}

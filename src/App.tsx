@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { runAgent } from './agent/loop'
+import { DEFAULT_SYSTEM_PROMPT, initAgentHome, writeAgentMd } from './agenthome'
 import { ApiProvider } from './providers/api'
-import { LocalProvider, presetModels } from './providers/local'
+import { LocalProvider, presetModels, webgpuAvailable } from './providers/local'
 import { builtinTools } from './tools/builtin'
 import { fsTools } from './tools/fs'
 import { gitTools } from './tools/git'
 import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
-import { loadSkills, makeUseSkillTool, upsertSkill } from './skills/store'
-import { seedDefaultSkills } from './skills/defaults'
+import { makeUseSkillTool } from './skills/store'
 import { setStorePassword, verifyStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
-import { loadPlugins } from './plugins/store'
-import { loadMcpServers } from './mcp/manager'
+import { getMcpServersCached } from './mcp/manager'
 import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Plugin, Provider, Skill, SlashCommand, ToolDef } from './types'
 import { Composer } from './ui/Composer'
 import { MessageList, type DisplayItem } from './ui/MessageList'
@@ -21,14 +20,10 @@ import { SkillsPanel } from './ui/SkillsPanel'
 import { McpPanel } from './ui/McpPanel'
 import { PasswordGate } from './ui/PasswordGate'
 import { SettingsPage } from './ui/SettingsPage'
-import { SkillsGallery } from './ui/SkillsGallery'
 import { PluginsPanel } from './ui/PluginsPanel'
 import { FileManager } from './ui/FileManager'
 
 const localProvider = new LocalProvider()
-
-// Seed built-in skills on first load (idempotent)
-seedDefaultSkills()
 
 const DEFAULT_SETTINGS: AgentSettings = {
   temperature: 0.7,
@@ -42,7 +37,6 @@ const DEFAULT_SETTINGS: AgentSettings = {
 const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'clear', description: 'Clear the chat history', icon: '🗑️' },
   { name: 'settings', description: 'Open settings', icon: '⚙️' },
-  { name: 'gallery', description: 'Browse skills gallery', icon: '🏪' },
   { name: 'skills', description: 'Manage skills', icon: '🎯' },
   { name: 'mcp', description: 'Manage MCP servers', icon: '🔌' },
   { name: 'help', description: 'Show available commands and tools', icon: '❓' },
@@ -52,7 +46,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'files', description: 'Browse and edit files', icon: '📂' },
 ]
 
-type View = 'chat' | 'settings' | 'gallery' | 'files'
+type View = 'chat' | 'settings' | 'files'
 type PasswordGateMode = 'setup' | 'unlock' | null
 
 const trimContext = (msgs: ChatMessage[], max: number): ChatMessage[] => {
@@ -71,10 +65,14 @@ export default function App() {
     apiKey: '',
     model: '',
   })
-  const [systemPrompt, setSystemPrompt] = usePersistedState(
-    'webgpu-agent.systemPrompt',
-    'You are a helpful agent running entirely in the user browser. You have access to built-in tools (get_time, fetch_url, run_javascript), file system tools (fs_*), git tools (git_*), web tools (weather_lookup, web_search), skills (use_skill), and can spawn sub-agents (spawn_agent). Connected MCP servers may add more tools. Use tools when they help; prefer acting over asking.',
-  )
+  // System prompt lives in /home/user/.agent/agent.md (loaded by initAgentHome)
+  const [systemPrompt, setSystemPromptState] = useState(DEFAULT_SYSTEM_PROMPT)
+  const promptSaveTimer = useRef<number | null>(null)
+  const setSystemPrompt = (value: string) => {
+    setSystemPromptState(value)
+    if (promptSaveTimer.current !== null) window.clearTimeout(promptSaveTimer.current)
+    promptSaveTimer.current = window.setTimeout(() => void writeAgentMd(value), 400)
+  }
   const [agentSettings, setAgentSettings] = usePersistedState<AgentSettings>(
     'webgpu-agent.settings',
     DEFAULT_SETTINGS,
@@ -99,15 +97,12 @@ export default function App() {
     return null
   })
   const [isUnlocked, setIsUnlocked] = useState(() => !detectEncryptionEnabled())
-  const [skills, setSkills] = useState<Skill[]>(() => loadSkills())
-  const [plugins, setPlugins] = useState<Plugin[]>(() => loadPlugins())
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [plugins, setPlugins] = useState<Plugin[]>([])
   const abortRef = useRef<AbortController | null>(null)
   const providerRef = useRef<Provider | null>(null)
   const toolsRef = useRef<ToolDef[]>([])
-
-  if (!localModel) {
-    setLocalModel(presetModels()[0] ?? '')
-  }
+  const initStarted = useRef(false)
 
   const getProvider = (): Provider => providerRef.current!
   const getTools = (): ToolDef[] => toolsRef.current
@@ -143,8 +138,8 @@ export default function App() {
     })
   }
 
-  const loadLocal = async () => {
-    const model = localModel || ''
+  const loadLocal = async (modelOverride?: string) => {
+    const model = modelOverride ?? localModel ?? ''
     if (!model) return
     setLoadState({ status: 'loading', text: 'Starting download…' })
     try {
@@ -156,6 +151,28 @@ export default function App() {
       setLoadState({ status: 'error', text: String(e) })
     }
   }
+
+  // One-time startup: populate /home/user/.agent (seeding built-in skills on
+  // first run), load skills/plugins/system prompt from it, and auto-load the
+  // last-used (or default) local model so chat works without pressing Load.
+  useEffect(() => {
+    if (initStarted.current) return
+    initStarted.current = true
+    void (async () => {
+      const home = await initAgentHome()
+      setSkills(home.skills)
+      setPlugins(home.plugins)
+      setSystemPromptState(home.systemPrompt)
+      if (mode === 'local' && webgpuAvailable()) {
+        const model = localModel || presetModels()[0] || ''
+        if (model) {
+          if (model !== localModel) setLocalModel(model)
+          void loadLocal(model)
+        }
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const buildTools = (): ToolDef[] => {
     const allSkills: Skill[] = [
@@ -236,10 +253,6 @@ export default function App() {
       setView('settings')
       return
     }
-    if (command === 'gallery') {
-      setView('gallery')
-      return
-    }
     if (command === 'files') {
       setView('files')
       return
@@ -274,12 +287,12 @@ export default function App() {
         : '*No skills installed yet.*'
       setDisplay((d) => [...d, {
         kind: 'assistant',
-        text: `## Installed Skills\n\n${lines}\n\nManage skills in the sidebar panel, or browse the gallery with **/gallery**.`,
+        text: `## Installed Skills\n\n${lines}\n\nManage skills in the sidebar panel — they are stored as files in \`/home/user/.agent/skills/\`.`,
       }])
       return
     }
     if (command === 'mcp') {
-      const servers = loadMcpServers()
+      const servers = getMcpServersCached()
       const serverLines = servers.length
         ? servers.map((s) => `**${s.name}** — ${s.url}`).join('\n')
         : '*No MCP servers configured. Add one in the "MCP servers" panel in the sidebar.*'
@@ -334,19 +347,12 @@ export default function App() {
 
   const handleRemoveAllData = () => {
     clearAllStoreData()
+    // Also drop the virtual filesystem (holds /home/user/.agent); completes once
+    // the reload below closes the open connection.
+    indexedDB.deleteDatabase('webgpu-agent-fs')
     setMessages([])
     setDisplay([])
     window.location.reload()
-  }
-
-  const handleInstallSkill = (skill: Omit<Skill, 'id'>) => {
-    const newSkill: Skill = { ...skill, id: crypto.randomUUID() }
-    const next = upsertSkill(skills, newSkill)
-    setSkills(next)
-    setDisplay((d) => [...d, {
-      kind: 'assistant',
-      text: `✓ Skill "${skill.name}" installed successfully.`,
-    }])
   }
 
   if (!isUnlocked && passwordGateMode === 'unlock') {
@@ -364,7 +370,6 @@ export default function App() {
         <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>WebGPU Agent</span>
         <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>Chat</button>
         <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
-        <button className={`nav-tab${view === 'gallery' ? ' active' : ''}`} onClick={() => setView('gallery')}>Gallery</button>
         <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
         {!hasPassword() && (
           <button
@@ -387,7 +392,7 @@ export default function App() {
             api={api}
             setApi={setApi}
             loadState={loadState}
-            onLoadLocal={loadLocal}
+            onLoadLocal={() => void loadLocal()}
             busy={busy}
           />
           <label className="dim">System prompt</label>
@@ -411,7 +416,6 @@ export default function App() {
             disabled={busy}
             skills={skills}
             onSkillsChange={setSkills}
-            onOpenGallery={() => setView('gallery')}
           />
           <McpPanel disabled={busy} onToolsChange={setMcpTools} />
           <PluginsPanel disabled={busy} plugins={plugins} onPluginsChange={setPlugins} />
@@ -438,13 +442,6 @@ export default function App() {
               onSystemPrompt={setSystemPrompt}
               onChangePassword={handleChangePassword}
               onRemoveAllData={handleRemoveAllData}
-            />
-          )}
-          {view === 'gallery' && (
-            <SkillsGallery
-              onInstall={handleInstallSkill}
-              onClose={() => setView('chat')}
-              installedNames={skills.map((s) => s.name)}
             />
           )}
           {view === 'files' && (

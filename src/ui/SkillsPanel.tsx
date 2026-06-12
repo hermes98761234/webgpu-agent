@@ -6,10 +6,9 @@ interface SkillsPanelProps {
   disabled: boolean
   skills: Skill[]
   onSkillsChange: (skills: Skill[]) => void
-  onOpenGallery?: () => void
 }
 
-export function SkillsPanel({ disabled, skills, onSkillsChange, onOpenGallery }: SkillsPanelProps) {
+export function SkillsPanel({ disabled, skills, onSkillsChange }: SkillsPanelProps) {
   const [editing, setEditing] = useState<Skill | null>(null)
 
   const blank = (): Skill => ({
@@ -61,10 +60,7 @@ export function SkillsPanel({ disabled, skills, onSkillsChange, onOpenGallery }:
           </div>
         </div>
       ) : (
-        <div className="row">
-          <button onClick={() => setEditing(blank())} disabled={disabled}>+ Add skill</button>
-          {onOpenGallery && <button className="btn-ghost" onClick={onOpenGallery} disabled={disabled}>Browse</button>}
-        </div>
+        <button onClick={() => setEditing(blank())} disabled={disabled}>+ Add skill</button>
       )}
     </details>
   )

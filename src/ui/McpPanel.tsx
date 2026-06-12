@@ -12,10 +12,10 @@ export function McpPanel({ disabled, onToolsChange }: {
   disabled: boolean
   onToolsChange: (tools: ToolDef[]) => void
 }) {
-  const [servers, setServers] = useState<McpServerConfig[]>(() => loadMcpServers())
+  const [servers, setServers] = useState<McpServerConfig[]>([])
   const [status, setStatus] = useState<Record<string, string>>({})
   const connections = useRef<Map<string, McpConnection>>(new Map())
-  const [draft, setDraft] = useState<{ name: string; url: string } | null>(null)
+  const [draft, setDraft] = useState<{ name: string; url: string; proxy: string } | null>(null)
 
   const publishTools = () => {
     const all: ToolDef[] = []
@@ -52,10 +52,15 @@ export function McpPanel({ disabled, onToolsChange }: {
     saveMcpServers(next)
   }
 
-  // Auto-connect saved servers on mount so their tools are available immediately.
+  // Load saved servers from /home/user/.agent/mcp.json and auto-connect them
+  // on mount so their tools are available immediately.
   useEffect(() => {
     const conns = connections.current
-    for (const s of loadMcpServers()) void connect(s)
+    void (async () => {
+      const saved = await loadMcpServers()
+      setServers(saved)
+      for (const s of saved) void connect(s)
+    })()
     return () => {
       for (const conn of conns.values()) void disconnectMcp(conn)
       conns.clear()
@@ -66,7 +71,11 @@ export function McpPanel({ disabled, onToolsChange }: {
   return (
     <details className="panel">
       <summary>MCP servers ({servers.length})</summary>
-      <p className="dim">Remote MCP servers over Streamable HTTP. The server must allow browser (CORS) access.</p>
+      <p className="dim">
+        Remote MCP servers over Streamable HTTP, saved in /home/user/.agent/mcp.json. The server must allow
+        browser (CORS) access — nothing in the browser sandbox (including WASM) can bypass CORS. If the server
+        doesn't send CORS headers, set a CORS proxy that forwards requests.
+      </p>
       {servers.map((s) => (
         <div key={s.id} className="col panel-item">
           <div className="row">
@@ -89,11 +98,21 @@ export function McpPanel({ disabled, onToolsChange }: {
             value={draft.url}
             onChange={(e) => setDraft({ ...draft, url: e.target.value })}
           />
+          <input
+            placeholder="CORS proxy (optional): prefix URL or template with {url}"
+            value={draft.proxy}
+            onChange={(e) => setDraft({ ...draft, proxy: e.target.value })}
+          />
           <div className="row">
             <button
               disabled={!draft.name.trim() || !/^https?:\/\//.test(draft.url)}
               onClick={() => {
-                const cfg: McpServerConfig = { id: crypto.randomUUID(), ...draft }
+                const cfg: McpServerConfig = {
+                  id: crypto.randomUUID(),
+                  name: draft.name,
+                  url: draft.url,
+                  proxy: draft.proxy.trim() || undefined,
+                }
                 const next = [...servers, cfg]
                 setServers(next)
                 saveMcpServers(next)
@@ -106,7 +125,7 @@ export function McpPanel({ disabled, onToolsChange }: {
           </div>
         </div>
       ) : (
-        <button onClick={() => setDraft({ name: '', url: '' })} disabled={disabled}>+ Add server</button>
+        <button onClick={() => setDraft({ name: '', url: '', proxy: '' })} disabled={disabled}>+ Add server</button>
       )}
     </details>
   )

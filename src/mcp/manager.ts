@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { AGENT_DIR, ensureDir, MCP_CONFIG, pfs } from '../fs/setup'
 import type { McpServerConfig, ToolDef } from '../types'
 
 export interface McpConnection {
@@ -12,9 +13,23 @@ export function sanitizeName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
 
+/**
+ * Resolve the URL to connect to. WASM can't bypass CORS — everything in the
+ * browser sandbox goes through fetch — so when the server itself doesn't send
+ * CORS headers, the request must be routed through a proxy that does.
+ * The proxy is either a prefix ("https://proxy.dev/" → proxy.dev/https://target)
+ * or a template containing "{url}" which is replaced with the encoded target.
+ */
+export function resolveServerUrl(config: McpServerConfig): URL {
+  const proxy = config.proxy?.trim()
+  if (!proxy) return new URL(config.url)
+  if (proxy.includes('{url}')) return new URL(proxy.replace('{url}', encodeURIComponent(config.url)))
+  return new URL(`${proxy.replace(/\/+$/, '')}/${config.url}`)
+}
+
 export async function connectMcpServer(config: McpServerConfig): Promise<McpConnection> {
   const client = new Client({ name: 'webgpu-agent', version: '0.1.0' })
-  const transport = new StreamableHTTPClientTransport(new URL(config.url))
+  const transport = new StreamableHTTPClientTransport(resolveServerUrl(config))
   await client.connect(transport)
   const { tools } = await client.listTools()
   const prefix = sanitizeName(config.name)
@@ -43,19 +58,32 @@ export async function disconnectMcp(conn: McpConnection): Promise<void> {
   }
 }
 
-const KEY = 'webgpu-agent.mcpServers'
+let cached: McpServerConfig[] = []
 
-export function loadMcpServers(): McpServerConfig[] {
+/** Read server list from /home/user/.agent/mcp.json */
+export async function loadMcpServers(): Promise<McpServerConfig[]> {
   try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return []
+    const raw = String(await pfs.readFile(MCP_CONFIG, 'utf8'))
     const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as McpServerConfig[]) : []
+    const servers = (parsed as { servers?: unknown }).servers
+    cached = Array.isArray(servers) ? (servers as McpServerConfig[]) : []
   } catch {
-    return []
+    cached = []
   }
+  return cached
+}
+
+/** Last list read from or written to mcp.json (for sync consumers like /mcp). */
+export function getMcpServersCached(): McpServerConfig[] {
+  return cached
+}
+
+export async function persistMcpServers(servers: McpServerConfig[]): Promise<void> {
+  cached = servers
+  await ensureDir(AGENT_DIR)
+  await pfs.writeFile(MCP_CONFIG, JSON.stringify({ servers }, null, 2), 'utf8')
 }
 
 export function saveMcpServers(servers: McpServerConfig[]): void {
-  localStorage.setItem(KEY, JSON.stringify(servers))
+  void persistMcpServers(servers)
 }

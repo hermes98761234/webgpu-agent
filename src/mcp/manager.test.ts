@@ -1,19 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadMcpServers, sanitizeName, saveMcpServers } from './manager'
+import { files, resetMemfs } from '../test/memfs'
+import {
+  getMcpServersCached,
+  loadMcpServers,
+  persistMcpServers,
+  resolveServerUrl,
+  sanitizeName,
+} from './manager'
 
-const mem = new Map<string, string>()
-vi.stubGlobal('localStorage', {
-  getItem: (k: string) => mem.get(k) ?? null,
-  setItem: (k: string, v: string) => {
-    mem.set(k, v)
-  },
-  removeItem: (k: string) => {
-    mem.delete(k)
-  },
-})
+vi.mock('../fs/setup', () => import('../test/memfs'))
 
 beforeEach(() => {
-  mem.clear()
+  resetMemfs()
 })
 
 describe('sanitizeName', () => {
@@ -23,11 +21,33 @@ describe('sanitizeName', () => {
   })
 })
 
-describe('mcp server persistence', () => {
-  it('round-trips configs', () => {
-    expect(loadMcpServers()).toEqual([])
+describe('mcp server persistence (/home/user/.agent/mcp.json)', () => {
+  it('round-trips configs through mcp.json', async () => {
+    expect(await loadMcpServers()).toEqual([])
     const cfg = [{ id: 'a', name: 'srv', url: 'https://mcp.example.com/mcp' }]
-    saveMcpServers(cfg)
-    expect(loadMcpServers()).toEqual(cfg)
+    await persistMcpServers(cfg)
+    expect(files.has('/home/user/.agent/mcp.json')).toBe(true)
+    expect(await loadMcpServers()).toEqual(cfg)
+    expect(getMcpServersCached()).toEqual(cfg)
+  })
+})
+
+describe('resolveServerUrl', () => {
+  const base = { id: 'a', name: 'srv', url: 'https://mcp.example.com/mcp' }
+
+  it('uses the server url directly when no proxy is set', () => {
+    expect(resolveServerUrl(base).href).toBe('https://mcp.example.com/mcp')
+  })
+
+  it('prefixes with the proxy url', () => {
+    expect(resolveServerUrl({ ...base, proxy: 'https://proxy.dev/' }).href).toBe(
+      'https://proxy.dev/https://mcp.example.com/mcp',
+    )
+  })
+
+  it('substitutes {url} templates with the encoded target', () => {
+    expect(resolveServerUrl({ ...base, proxy: 'https://proxy.dev/?target={url}' }).href).toBe(
+      `https://proxy.dev/?target=${encodeURIComponent(base.url)}`,
+    )
   })
 })
