@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildToolSystemPrompt, parseToolCall } from './toolPrompt'
+import { buildToolSystemPrompt, parseToolCall, parseToolCalls } from './toolPrompt'
 import type { ToolDef } from '../types'
 
 const tools: ToolDef[] = [
@@ -48,5 +48,55 @@ describe('parseToolCall', () => {
     const a = parseToolCall('{"tool": "x", "arguments": {}}')
     const b = parseToolCall('{"tool": "x", "arguments": {}}')
     expect(a?.id).not.toBe(b?.id)
+  })
+})
+
+describe('parseToolCalls', () => {
+  it('returns empty array for plain text', () => {
+    expect(parseToolCalls('The answer is 42.')).toEqual([])
+  })
+
+  it('parses a single inline tool call', () => {
+    const calls = parseToolCalls('{"tool": "fs_list", "arguments": {"path": "/tmp"}}')
+    expect(calls).toHaveLength(1)
+    expect(calls[0].name).toBe('fs_list')
+    expect(calls[0].arguments).toEqual({ path: '/tmp' })
+  })
+
+  it('parses multiple inline tool calls separated by prose', () => {
+    const text = [
+      '{"tool": "fs_list", "arguments": {"path": "/home"}}',
+      '',
+      'Waiting for listing...',
+      '',
+      '{"tool": "fs_read", "arguments": {"path": "/home/user/file.md"}}',
+      '',
+      'Reading file...',
+    ].join('\n')
+    const calls = parseToolCalls(text)
+    expect(calls).toHaveLength(2)
+    expect(calls[0].name).toBe('fs_list')
+    expect(calls[1].name).toBe('fs_read')
+    expect(calls[1].arguments).toEqual({ path: '/home/user/file.md' })
+  })
+
+  it('handles nested JSON in arguments', () => {
+    const text = '{"tool": "run_javascript", "arguments": {"code": "var x = {a: 1}; console.log(x);"}}'
+    const calls = parseToolCalls(text)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].name).toBe('run_javascript')
+  })
+
+  it('skips non-tool JSON objects', () => {
+    const text = '{"answer": 42}\n{"tool": "get_time", "arguments": {}}'
+    const calls = parseToolCalls(text)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].name).toBe('get_time')
+  })
+
+  it('assigns unique ids to each call', () => {
+    const text = '{"tool": "a", "arguments": {}}\n{"tool": "b", "arguments": {}}'
+    const calls = parseToolCalls(text)
+    expect(calls[0].id).not.toBe(calls[1].id)
   })
 })

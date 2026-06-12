@@ -1,5 +1,5 @@
 import type { AgentEvent, AgentSettings, ChatMessage, Provider, ToolDef } from '../types'
-import { buildToolSystemPrompt, parseToolCall } from './toolPrompt'
+import { buildToolSystemPrompt, parseToolCalls } from './toolPrompt'
 
 const MAX_ITERATIONS = 10
 
@@ -38,8 +38,7 @@ export async function runAgent(
 
     let calls = result.toolCalls
     if (!provider.supportsNativeTools && tools.length > 0) {
-      const parsed = parseToolCall(result.content)
-      calls = parsed ? [parsed] : []
+      calls = parseToolCalls(result.content)
     }
 
     const assistant: ChatMessage = { role: 'assistant', content: result.content }
