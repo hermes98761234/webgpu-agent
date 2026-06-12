@@ -69,12 +69,52 @@ export function webgpuAvailable(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator
 }
 
+export interface GpuCaps {
+  available: boolean
+  f16Trusted: boolean
+}
+
+let capsPromise: Promise<GpuCaps> | null = null
+
+export function detectGpuCaps(): Promise<GpuCaps> {
+  if (!capsPromise) capsPromise = probeGpu()
+  return capsPromise
+}
+
+async function probeGpu(): Promise<GpuCaps> {
+  if (!webgpuAvailable()) return { available: false, f16Trusted: false }
+  try {
+    const adapter = await navigator.gpu.requestAdapter()
+    if (!adapter) return { available: false, f16Trusted: false }
+    const hasF16 = adapter.features.has('shader-f16')
+    // Mobile GPU drivers (Adreno/Mali) often advertise shader-f16 but overflow
+    // or produce NaNs in FP16 matmuls, turning model output into random tokens.
+    const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)
+    return { available: true, f16Trusted: hasF16 && !mobile }
+  } catch {
+    return { available: false, f16Trusted: false }
+  }
+}
+
+export function resolveModelForDevice(modelId: string, f16Trusted: boolean): string {
+  if (f16Trusted || !modelId.includes('q4f16')) return modelId
+  const fallback = modelId.replace(/q4f16/g, 'q4f32')
+  const exists = prebuiltAppConfig.model_list.some((m) => m.model_id === fallback)
+  return exists ? fallback : modelId
+}
+
 export class LocalProvider implements Provider {
   supportsNativeTools = false
   private engine: MLCEngine | null = null
   loadedModel = ''
 
   async load(modelId: string, onProgress: (text: string, progress: number) => void): Promise<void> {
+    const caps = await detectGpuCaps()
+    const resolved = resolveModelForDevice(modelId, caps.f16Trusted)
+    if (resolved !== modelId) {
+      onProgress(`This GPU's FP16 support is unreliable — loading ${resolved} instead to avoid garbled output`, 0)
+    }
+    modelId = resolved
     if (this.engine && this.loadedModel === modelId) return
     if (this.engine) {
       await this.engine.unload()
