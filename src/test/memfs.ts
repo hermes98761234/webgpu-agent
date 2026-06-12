@@ -17,6 +17,8 @@ export const SKILLS_DIR = `${AGENT_DIR}/skills`
 export const PLUGINS_DIR = `${AGENT_DIR}/plugins`
 export const AGENT_MD = `${AGENT_DIR}/agent.md`
 export const MCP_CONFIG = `${AGENT_DIR}/mcp.json`
+export const MEMORY_DIR = `${AGENT_DIR}/memory`
+export const MEMORY_INDEX = `${MEMORY_DIR}/MEMORY.md`
 
 export const pfs = {
   async mkdir(p: string): Promise<void> {
