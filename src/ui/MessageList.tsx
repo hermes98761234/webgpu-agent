@@ -79,7 +79,7 @@ function UiFrame({ html }: UiFrameProps) {
   return (
     <iframe
       srcDoc={srcdoc}
-      sandbox="allow-scripts"
+      sandbox=""
       style={{
         width: '100%',
         height: '300px',

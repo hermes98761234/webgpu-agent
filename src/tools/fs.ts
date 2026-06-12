@@ -1,7 +1,19 @@
 import type { ToolDef } from '../types'
-import { pfs, ensureDir } from '../fs/setup'
+import { pfs, ensureDir, AGENT_MD, MCP_CONFIG, SKILLS_DIR, PLUGINS_DIR } from '../fs/setup'
 
 const MAX_READ_BYTES = 50 * 1024
+
+const PROTECTED_PATHS = [AGENT_MD, MCP_CONFIG]
+const PROTECTED_DIRS = [SKILLS_DIR, PLUGINS_DIR]
+
+function isProtected(path: string): boolean {
+  const normalized = path.replace(/\/+$/, '')
+  if (PROTECTED_PATHS.includes(normalized)) return true
+  for (const dir of PROTECTED_DIRS) {
+    if (normalized === dir || normalized.startsWith(dir + '/')) return true
+  }
+  return false
+}
 
 const fsRead: ToolDef = {
   name: 'fs_read',
@@ -40,6 +52,7 @@ const fsWrite: ToolDef = {
   async execute(args) {
     try {
       const path = String(args.path)
+      if (isProtected(path)) return `Error: writing to system path '${path}' is not allowed`
       const dir = path.substring(0, path.lastIndexOf('/')) || '/'
       await ensureDir(dir)
       await pfs.writeFile(path, String(args.content), 'utf8')
@@ -112,6 +125,7 @@ const fsDelete: ToolDef = {
   async execute(args) {
     try {
       const path = String(args.path)
+      if (isProtected(path)) return `Error: deleting system path '${path}' is not allowed`
       if (args.recursive) {
         await deleteRecursive(path)
       } else {
@@ -140,8 +154,10 @@ const fsMkdir: ToolDef = {
   source: 'builtin',
   async execute(args) {
     try {
-      await ensureDir(String(args.path))
-      return `Created: ${args.path}`
+      const path = String(args.path)
+      if (isProtected(path)) return `Error: creating directory at system path '${path}' is not allowed`
+      await ensureDir(path)
+      return `Created: ${path}`
     } catch (e) {
       return `Error: ${String(e)}`
     }
@@ -162,8 +178,12 @@ const fsMove: ToolDef = {
   source: 'builtin',
   async execute(args) {
     try {
-      await pfs.rename(String(args.from), String(args.to))
-      return `Moved: ${args.from} → ${args.to}`
+      const from = String(args.from)
+      const to = String(args.to)
+      if (isProtected(from)) return `Error: moving system path '${from}' is not allowed`
+      if (isProtected(to)) return `Error: moving to system path '${to}' is not allowed`
+      await pfs.rename(from, to)
+      return `Moved: ${from} → ${to}`
     } catch (e) {
       return `Error: ${String(e)}`
     }
