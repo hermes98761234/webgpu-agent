@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { SlashCommand } from '../types'
 
 export type { SlashCommand }
@@ -29,7 +29,6 @@ const THINKING_STYLE = `
 
 export function Composer({ busy, onSend, onStop, onCommand, commands = [] }: ComposerProps) {
   const [text, setText] = useState('')
-  const [showDropdown, setShowDropdown] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -40,19 +39,11 @@ export function Composer({ busy, onSend, onStop, onCommand, commands = [] }: Com
       )
     : []
 
-  useEffect(() => {
-    if (text.startsWith('/') && filtered.length > 0) {
-      setShowDropdown(true)
-      setSelectedIndex(0)
-    } else {
-      setShowDropdown(false)
-    }
-  }, [text, filtered.length])
+  const showDropdown = filtered.length > 0
 
   const selectCommand = (cmd: SlashCommand) => {
     const rest = text.includes(' ') ? text.slice(text.indexOf(' ') + 1) : ''
     setText('')
-    setShowDropdown(false)
     if (onCommand) {
       onCommand(cmd.name, rest)
     }
@@ -69,14 +60,12 @@ export function Composer({ busy, onSend, onStop, onCommand, commands = [] }: Com
       const matched = commands.find((c) => c.name.toLowerCase() === cmdName)
       if (matched) {
         setText('')
-        setShowDropdown(false)
         onCommand(matched.name, args)
         return
       }
     }
 
     setText('')
-    setShowDropdown(false)
     onSend(t)
   }
 
@@ -99,7 +88,7 @@ export function Composer({ busy, onSend, onStop, onCommand, commands = [] }: Com
       }
       if (e.key === 'Escape') {
         e.preventDefault()
-        setShowDropdown(false)
+        setText('')
         return
       }
     }

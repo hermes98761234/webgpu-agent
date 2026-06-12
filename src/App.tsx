@@ -138,7 +138,7 @@ export default function App() {
     }
   }
 
-  const buildTools = (_provider: Provider): ToolDef[] => {
+  const buildTools = (): ToolDef[] => {
     const skills = loadSkills()
     const spawnTool = makeSpawnAgentTool(getProvider, getTools)
     return [
@@ -165,7 +165,7 @@ export default function App() {
       provider = new ApiProvider(api)
     }
     providerRef.current = provider
-    const tools = buildTools(provider)
+    const tools = buildTools()
     toolsRef.current = tools
     const abort = new AbortController()
     abortRef.current = abort

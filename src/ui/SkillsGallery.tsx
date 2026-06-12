@@ -50,16 +50,21 @@ export function SkillsGallery({ onInstall, onClose }: SkillsGalleryProps) {
       ? `https://www.skills.sh/api/skills?q=${encodeURIComponent(query.trim())}`
       : 'https://www.skills.sh/api/skills'
 
-    setLoading(true)
-    fetch(url)
-      .then((r) => r.json())
-      .then((data: GallerySkill[]) => {
-        setSkills(Array.isArray(data) ? data : FALLBACK_SKILLS)
-      })
-      .catch(() => {
-        setSkills(FALLBACK_SKILLS)
-      })
-      .finally(() => setLoading(false))
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const r = await fetch(url)
+        const data: unknown = await r.json()
+        if (!cancelled) setSkills(Array.isArray(data) ? (data as GallerySkill[]) : FALLBACK_SKILLS)
+      } catch {
+        if (!cancelled) setSkills(FALLBACK_SKILLS)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
   }, [query])
 
   const overlayStyle: React.CSSProperties = {

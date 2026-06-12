@@ -157,7 +157,7 @@ const gitDiff: ToolDef = {
           try {
             const content = await fs.promises.readFile(`${dir}/${file}`, { encoding: 'utf8' }) as string
             content.split('\n').forEach((l) => lines.push(`+ ${l}`))
-          } catch {}
+          } catch { /* file unreadable, skip diff body */ }
         } else if (head === 1 && workdir === 0) {
           lines.push(`--- ${file} (deleted)`)
         } else {
