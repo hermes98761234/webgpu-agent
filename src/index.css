@@ -1,0 +1,13 @@
+:root {
+  color-scheme: dark;
+  --bg: #111418;
+  --bg-alt: #1a1f26;
+  --border: #2c343f;
+  --text: #e6e9ee;
+  --text-dim: #97a1ad;
+  --accent: #4f9cf9;
+  --error: #f97066;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
