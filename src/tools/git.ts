@@ -4,13 +4,25 @@ import type { GitHttpRequest, GitHttpResponse, HttpClient } from 'isomorphic-git
 import type { ToolDef } from '../types'
 import { fs } from '../fs/setup'
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url='
+const CORS_PROXY = 'https://corsproxy.io/?url='
 
 async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
   const proxyUrl = CORS_PROXY + encodeURIComponent(req.url)
-  const proxyReq: GitHttpRequest = { ...req, url: proxyUrl }
   try {
-    return await defaultHttp.request(proxyReq)
+    const response = await fetch(proxyUrl, {
+      method: req.method,
+      headers: req.headers as Record<string, string>,
+      body: req.body,
+    })
+    const body = await response.arrayBuffer()
+    return {
+      url: req.url,
+      method: req.method,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: body as any,
+      statusCode: response.status,
+      statusMessage: response.statusText,
+    }
   } catch {
     return defaultHttp.request(req)
   }
