@@ -12,9 +12,9 @@ afterEach(() => {
 })
 
 describe('builtinTools', () => {
-  it('exposes get_time, fetch_url, run_javascript', () => {
+  it('exposes get_time, fetch_url, run_javascript, run_python', () => {
     expect(builtinTools.map((t) => t.name).sort()).toEqual([
-      'fetch_url', 'get_time', 'run_javascript',
+      'fetch_url', 'get_time', 'run_javascript', 'run_python',
     ])
   })
 

@@ -81,6 +81,68 @@ User: "Create a hello-world Node project"
 `,
   },
   {
+    id: 'python',
+    name: 'Python',
+    description: 'Run Python code in the browser with run_python',
+    instructions: `# Python Skill
+
+You have access to run_python — an in-browser Python execution environment powered by PyScript (Pyodide).
+
+## Tool Reference
+
+| Tool | Purpose | Key Args |
+|------|---------|----------|
+| \`run_python\` | Execute Python code | \`code\` |
+
+## Key Facts
+- Full CPython 3.x via Pyodide (WebAssembly)
+- Standard library available: math, json, collections, re, datetime, etc.
+- Use \`print()\` for output — it is captured and returned.
+- Variables and imports persist between calls in the same session.
+- 15-second timeout per call.
+- No network access (fetch/requests will fail).
+- No DOM access — this runs in a Web Worker.
+
+## Examples
+
+### Simple calculation
+\`\`\`
+run_python { "code": "print(2 ** 100)" }
+\`\`\`
+
+### Use math module
+\`\`\`
+run_python { "code": "import math\\nprint(math.factorial(20))" }
+\`\`\`
+
+### Process data
+\`\`\`
+run_python { "code": "data = [3, 1, 4, 1, 5, 9, 2, 6]\\nprint(sorted(data))\\nprint(sum(data) / len(data))" }
+\`\`\`
+
+### String manipulation
+\`\`\`
+run_python { "code": "text = 'Hello, World!'\\nprint(text.lower())\\nprint(text.replace('World', 'Python'))" }
+\`\`\`
+
+### Work with JSON
+\`\`\`
+run_python { "code": "import json\\ndata = {'users': [{'name': 'Alice', 'age': 30}, {'name': 'Bob', 'age': 25}]}\\nprint(json.dumps(data, indent=2))" }
+\`\`\`
+
+### Use collections
+\`\`\`
+run_python { "code": "from collections import Counter\\nwords = 'the cat sat on the mat the cat'.split()\\nprint(Counter(words))" }
+\`\`\`
+
+## Tips
+- Combine multiple statements in one call for complex logic.
+- Import modules at the top — they persist across calls.
+- For large data processing, break into multiple calls.
+- Use \`json.dumps()\` to format complex output.
+`,
+  },
+  {
     id: 'git',
     name: 'Git',
     description: 'Initialize repos, commit, push/pull, clone, and deploy with git_ tools',

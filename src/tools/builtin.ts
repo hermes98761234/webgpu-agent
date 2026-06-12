@@ -1,4 +1,5 @@
 import type { ToolDef } from '../types'
+import { runPython } from './python'
 
 const getTime: ToolDef = {
   name: 'get_time',
@@ -77,4 +78,4 @@ const runJavascript: ToolDef = {
   },
 }
 
-export const builtinTools: ToolDef[] = [getTime, fetchUrl, runJavascript]
+export const builtinTools: ToolDef[] = [getTime, fetchUrl, runJavascript, runPython]
