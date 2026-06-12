@@ -23,6 +23,32 @@ export async function readMemoryIndex(): Promise<string> {
   }
 }
 
+export interface MemoryFile {
+  slug: string
+  path: string
+  content: string
+}
+
+/** Read MEMORY.md index + every referenced memory file. */
+export async function readAllMemories(): Promise<{ index: string; files: MemoryFile[] }> {
+  const index = await readMemoryIndex()
+  const files: MemoryFile[] = []
+  for (const line of indexLines(index)) {
+    // lines look like: - [slug](/home/user/.agent/memory/slug.md) — description
+    const match = /\(([^)]+\.md)\)/.exec(line)
+    if (!match) continue
+    const path = match[1]
+    const slug = lineSlug(line) ?? path
+    try {
+      const content = String(await pfs.readFile(path, 'utf8'))
+      files.push({ slug, path, content })
+    } catch {
+      // file missing — skip silently
+    }
+  }
+  return { index, files }
+}
+
 async function writeMemoryIndex(lines: string[]): Promise<void> {
   await ensureDir(MEMORY_DIR)
   await pfs.writeFile(MEMORY_INDEX, lines.join('\n') + (lines.length ? '\n' : ''), 'utf8')

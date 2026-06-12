@@ -10,7 +10,7 @@ import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
 import { makeUseSkillTool } from './skills/store'
 import { buildAgentSystemPrompt } from './agent/context'
-import { makeMemoryTools, readMemoryIndex } from './memory/store'
+import { makeMemoryTools, readAllMemories } from './memory/store'
 import { setStorePassword, verifyStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
 import { getMcpServersCached } from './mcp/manager'
 import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Plugin, Provider, Skill, SlashCommand, ToolDef } from './types'
@@ -228,7 +228,8 @@ export default function App() {
     const abort = new AbortController()
     abortRef.current = abort
     try {
-      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), await readMemoryIndex())
+      const { index: memIdx, files: memFiles } = await readAllMemories()
+      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles)
       const final = await runAgent(history, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
       setMessages(final)
     } catch (e) {

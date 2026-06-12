@@ -23,14 +23,21 @@ describe('buildSkillsSection', () => {
 
 describe('buildMemorySection', () => {
   it('shows placeholder when index is empty', () => {
-    expect(buildMemorySection('')).toContain('(no memories saved yet)')
+    expect(buildMemorySection('', [])).toContain('(no memories saved yet)')
   })
 
   it('embeds the index and tool guidance', () => {
-    const out = buildMemorySection('- [a](a.md) — fact a\n')
+    const out = buildMemorySection('- [a](a.md) — fact a\n', [])
     expect(out).toContain('- [a](a.md) — fact a')
     expect(out).toContain('memory_save')
-    expect(out).toContain('fs_read')
+  })
+
+  it('inlines full memory file contents', () => {
+    const files = [{ slug: 'a', path: 'a.md', content: 'The fact content here.' }]
+    const out = buildMemorySection('- [a](a.md) — fact a\n', files)
+    expect(out).toContain('## Memory contents')
+    expect(out).toContain('### a')
+    expect(out).toContain('The fact content here.')
   })
 })
 
