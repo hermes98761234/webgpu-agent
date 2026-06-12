@@ -21,7 +21,7 @@ export function buildMemorySection(memoryIndex: string): string {
     '',
     'You have persistent memory at /home/user/.agent/memory — one markdown file per fact, indexed in MEMORY.md. Memory survives across chats; the chat itself does not.',
     'How to work with memory:',
-    '- Recall: the index below lists every saved memory. When one is relevant, read it in full with fs_read on /home/user/.agent/memory/<file>.',
+    '- Recall: the index below lists every saved memory with its absolute file path. When one is relevant, read it in full by calling fs_read with that exact path copied from the index.',
     '- Save: when you learn a stable fact worth keeping (a user preference, a project fact, a correction you were given), call memory_save with a short kebab-case name, a one-line description, and the fact. One fact per memory.',
     '- Update: saving an existing name overwrites it. Delete wrong or outdated memories with memory_delete.',
     '- Do not save secrets, passwords, or one-off conversation details.',

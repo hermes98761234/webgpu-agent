@@ -97,9 +97,13 @@ export function makeUseSkillTool(getSkills: () => Skill[]): ToolDef {
     },
     source: 'skill',
     async execute(args) {
-      const name = String(args.name ?? '')
+      const name = String(args.name ?? '').trim()
       const skills = getSkills()
-      const skill = skills.find((s) => s.name === name)
+      const lower = name.toLowerCase()
+      const skill =
+        skills.find((s) => s.name === name) ??
+        skills.find((s) => s.name.toLowerCase() === lower) ??
+        skills.find((s) => s.id === slugify(name))
       if (!skill) {
         const names = skills.map((s) => s.name).join(', ') || 'none'
         return `Error: no skill named "${name}". Available: ${names}`

@@ -27,7 +27,9 @@ describe('memory store (files under /home/user/.agent/memory)', () => {
     expect(raw).toContain('name: fav-color')
     expect(raw).toContain('description: User favorite color')
     expect(raw).toContain('prefers green')
-    expect(await readMemoryIndex()).toBe('- [fav-color](fav-color.md) — User favorite color\n')
+    expect(await readMemoryIndex()).toBe(
+      '- [fav-color](/home/user/.agent/memory/fav-color.md) — User favorite color\n',
+    )
   })
 
   it('saving the same name twice overwrites without duplicating the index line', async () => {

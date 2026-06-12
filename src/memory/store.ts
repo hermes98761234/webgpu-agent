@@ -33,7 +33,7 @@ function indexLines(index: string): string[] {
 }
 
 function lineFor(slug: string, description: string): string {
-  return `- [${slug}](${slug}.md) — ${description}`
+  return `- [${slug}](${MEMORY_DIR}/${slug}.md) — ${description}`
 }
 
 const lineSlug = (line: string): string | null => /^- \[([^\]]+)\]/.exec(line)?.[1] ?? null

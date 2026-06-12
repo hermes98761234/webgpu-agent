@@ -84,6 +84,13 @@ describe('use_skill tool', () => {
     expect(out).toContain('5-7-5')
   })
 
+  it('matches names case-insensitively and by slug', async () => {
+    const tool = makeUseSkillTool(() => [{ ...skill, name: 'Haiku Poems', id: 'haiku-poems' }])
+    expect(await tool.execute({ name: 'haiku poems' })).toContain('5-7-5')
+    expect(await tool.execute({ name: 'haiku-poems' })).toContain('5-7-5')
+    expect(await tool.execute({ name: ' Haiku Poems ' })).toContain('5-7-5')
+  })
+
   it('returns helpful error for unknown skill', async () => {
     const tool = makeUseSkillTool(() => [skill])
     const out = await tool.execute({ name: 'nope' })

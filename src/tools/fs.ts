@@ -1,10 +1,19 @@
 import type { ToolDef } from '../types'
-import { pfs, ensureDir, AGENT_MD, MCP_CONFIG, SKILLS_DIR, PLUGINS_DIR } from '../fs/setup'
+import { pfs, ensureDir, AGENT_MD, HOME, MCP_CONFIG, SKILLS_DIR, PLUGINS_DIR } from '../fs/setup'
 
 const MAX_READ_BYTES = 50 * 1024
 
 const PROTECTED_PATHS = [AGENT_MD, MCP_CONFIG]
 const PROTECTED_DIRS = [SKILLS_DIR, PLUGINS_DIR]
+
+/** Models often pass "~/x", relative paths, or padded strings; resolve to a clean absolute path. */
+function resolvePath(raw: unknown): string {
+  let path = String(raw ?? '').trim()
+  if (path === '~') path = HOME
+  else if (path.startsWith('~/')) path = `${HOME}/${path.slice(2)}`
+  if (!path.startsWith('/')) path = `${HOME}/${path}`
+  return path.replace(/\/{2,}/g, '/')
+}
 
 function isProtected(path: string): boolean {
   const normalized = path.replace(/\/+$/, '')
@@ -20,13 +29,13 @@ const fsRead: ToolDef = {
   description: 'Read a file from the virtual filesystem.',
   parameters: {
     type: 'object',
-    properties: { path: { type: 'string', description: 'Absolute file path' } },
+    properties: { path: { type: 'string', description: 'Absolute file path (~ and home-relative paths are resolved)' } },
     required: ['path'],
   },
   source: 'builtin',
   async execute(args) {
     try {
-      const data = await pfs.readFile(String(args.path), { encoding: 'utf8' }) as string
+      const data = await pfs.readFile(resolvePath(args.path), { encoding: 'utf8' }) as string
       if (data.length > MAX_READ_BYTES) {
         return data.slice(0, MAX_READ_BYTES) + '\n[truncated at 50KB]'
       }
@@ -43,7 +52,7 @@ const fsWrite: ToolDef = {
   parameters: {
     type: 'object',
     properties: {
-      path: { type: 'string', description: 'Absolute file path' },
+      path: { type: 'string', description: 'Absolute file path (~ and home-relative paths are resolved)' },
       content: { type: 'string', description: 'File content' },
     },
     required: ['path', 'content'],
@@ -51,7 +60,7 @@ const fsWrite: ToolDef = {
   source: 'builtin',
   async execute(args) {
     try {
-      const path = String(args.path)
+      const path = resolvePath(args.path)
       if (isProtected(path)) return `Error: writing to system path '${path}' is not allowed`
       const dir = path.substring(0, path.lastIndexOf('/')) || '/'
       await ensureDir(dir)
@@ -69,7 +78,7 @@ const fsCreate: ToolDef = {
   parameters: {
     type: 'object',
     properties: {
-      path: { type: 'string', description: 'Absolute file path' },
+      path: { type: 'string', description: 'Absolute file path (~ and home-relative paths are resolved)' },
       content: { type: 'string', description: 'Initial file content (defaults to empty)' },
     },
     required: ['path'],
@@ -77,7 +86,7 @@ const fsCreate: ToolDef = {
   source: 'builtin',
   async execute(args) {
     try {
-      const path = String(args.path)
+      const path = resolvePath(args.path)
       if (isProtected(path)) return `Error: creating file at system path '${path}' is not allowed`
       const dir = path.substring(0, path.lastIndexOf('/')) || '/'
       await ensureDir(dir)
@@ -94,13 +103,13 @@ const fsList: ToolDef = {
   description: 'List directory contents.',
   parameters: {
     type: 'object',
-    properties: { path: { type: 'string', description: 'Absolute directory path' } },
+    properties: { path: { type: 'string', description: 'Absolute directory path (~ and home-relative paths are resolved)' } },
     required: ['path'],
   },
   source: 'builtin',
   async execute(args) {
     try {
-      const path = String(args.path)
+      const path = resolvePath(args.path)
       const names = await pfs.readdir(path)
       const entries = await Promise.all(
         names.map(async (name: string) => {
@@ -142,7 +151,7 @@ const fsDelete: ToolDef = {
   parameters: {
     type: 'object',
     properties: {
-      path: { type: 'string', description: 'Absolute path to delete' },
+      path: { type: 'string', description: 'Absolute path to delete (~ and home-relative paths are resolved)' },
       recursive: { type: 'boolean', description: 'Delete directory recursively' },
     },
     required: ['path'],
@@ -150,7 +159,7 @@ const fsDelete: ToolDef = {
   source: 'builtin',
   async execute(args) {
     try {
-      const path = String(args.path)
+      const path = resolvePath(args.path)
       if (isProtected(path)) return `Error: deleting system path '${path}' is not allowed`
       if (args.recursive) {
         await deleteRecursive(path)
@@ -174,13 +183,13 @@ const fsMkdir: ToolDef = {
   description: 'Create a directory (including parent directories).',
   parameters: {
     type: 'object',
-    properties: { path: { type: 'string', description: 'Absolute directory path' } },
+    properties: { path: { type: 'string', description: 'Absolute directory path (~ and home-relative paths are resolved)' } },
     required: ['path'],
   },
   source: 'builtin',
   async execute(args) {
     try {
-      const path = String(args.path)
+      const path = resolvePath(args.path)
       if (isProtected(path)) return `Error: creating directory at system path '${path}' is not allowed`
       await ensureDir(path)
       return `Created: ${path}`
@@ -196,16 +205,16 @@ const fsMove: ToolDef = {
   parameters: {
     type: 'object',
     properties: {
-      from: { type: 'string', description: 'Source path' },
-      to: { type: 'string', description: 'Destination path' },
+      from: { type: 'string', description: 'Source path (~ and home-relative paths are resolved)' },
+      to: { type: 'string', description: 'Destination path (~ and home-relative paths are resolved)' },
     },
     required: ['from', 'to'],
   },
   source: 'builtin',
   async execute(args) {
     try {
-      const from = String(args.from)
-      const to = String(args.to)
+      const from = resolvePath(args.from)
+      const to = resolvePath(args.to)
       if (isProtected(from)) return `Error: moving system path '${from}' is not allowed`
       if (isProtected(to)) return `Error: moving to system path '${to}' is not allowed`
       await pfs.rename(from, to)
