@@ -7,6 +7,7 @@ interface SettingsPageProps {
   maxTokens: number
   presencePenalty: number
   frequencyPenalty: number
+  maxContextMessages: number
   theme: 'dark' | 'light'
   systemPrompt: string
   onTemperature: (v: number) => void
@@ -14,6 +15,7 @@ interface SettingsPageProps {
   onMaxTokens: (v: number) => void
   onPresencePenalty: (v: number) => void
   onFrequencyPenalty: (v: number) => void
+  onMaxContextMessages: (v: number) => void
   onTheme: (v: 'dark' | 'light') => void
   onSystemPrompt: (v: string) => void
   onChangePassword: () => void
@@ -23,9 +25,9 @@ interface SettingsPageProps {
 export function SettingsPage(props: SettingsPageProps) {
   const {
     onClose,
-    temperature, topP, maxTokens, presencePenalty, frequencyPenalty,
+    temperature, topP, maxTokens, presencePenalty, frequencyPenalty, maxContextMessages,
     theme, systemPrompt,
-    onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty,
+    onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty, onMaxContextMessages,
     onTheme, onSystemPrompt,
     onChangePassword, onRemoveAllData,
   } = props
@@ -226,6 +228,18 @@ export function SettingsPage(props: SettingsPageProps) {
               style={{ flex: 1 }}
             />
             <span style={sliderBadge}>{frequencyPenalty.toFixed(1)}</span>
+          </div>
+
+          <div style={sliderRow}>
+            <span style={sliderLabel}>Context Messages</span>
+            <input
+              type="range"
+              min={10} max={200} step={10}
+              value={maxContextMessages}
+              onChange={(e) => onMaxContextMessages(parseInt(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={sliderBadge}>{maxContextMessages}</span>
           </div>
         </div>
 

@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { deleteSkill, loadSkills, upsertSkill } from '../skills/store'
+import { deleteSkill, upsertSkill } from '../skills/store'
 import type { Skill } from '../types'
 
-export function SkillsPanel({ disabled, onOpenGallery }: { disabled: boolean; onOpenGallery?: () => void }) {
-  const [skills, setSkills] = useState<Skill[]>(() => loadSkills())
+interface SkillsPanelProps {
+  disabled: boolean
+  skills: Skill[]
+  onSkillsChange: (skills: Skill[]) => void
+  onOpenGallery?: () => void
+}
+
+export function SkillsPanel({ disabled, skills, onSkillsChange, onOpenGallery }: SkillsPanelProps) {
   const [editing, setEditing] = useState<Skill | null>(null)
 
   const blank = (): Skill => ({
@@ -20,7 +26,7 @@ export function SkillsPanel({ disabled, onOpenGallery }: { disabled: boolean; on
         <div key={s.id} className="row panel-item">
           <span title={s.description}>{s.name}</span>
           <button onClick={() => setEditing(s)} disabled={disabled}>edit</button>
-          <button onClick={() => setSkills(deleteSkill(skills, s.id))} disabled={disabled}>✕</button>
+          <button onClick={() => onSkillsChange(deleteSkill(skills, s.id))} disabled={disabled}>✕</button>
         </div>
       ))}
       {editing ? (
@@ -45,7 +51,7 @@ export function SkillsPanel({ disabled, onOpenGallery }: { disabled: boolean; on
             <button
               disabled={!editing.name.trim() || !editing.instructions.trim()}
               onClick={() => {
-                setSkills(upsertSkill(skills, editing))
+                onSkillsChange(upsertSkill(skills, editing))
                 setEditing(null)
               }}
             >

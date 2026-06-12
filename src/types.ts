@@ -32,6 +32,7 @@ export interface AgentSettings {
   maxTokens: number
   presencePenalty: number
   frequencyPenalty: number
+  maxContextMessages: number
 }
 
 export interface Provider {
@@ -69,6 +70,31 @@ export interface SlashCommand {
   name: string
   description: string
   icon?: string
+}
+
+export interface PluginSkill {
+  name: string
+  description: string
+  instructions: string
+}
+
+export interface PluginCommand {
+  name: string
+  description: string
+  icon?: string
+  template?: string
+}
+
+export interface Plugin {
+  id: string
+  name: string
+  description: string
+  version?: string
+  author?: { name: string }
+  homepage?: string
+  enabled: boolean
+  skills: PluginSkill[]
+  commands: PluginCommand[]
 }
 
 export type AgentEvent =
