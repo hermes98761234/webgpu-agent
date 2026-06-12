@@ -36,8 +36,10 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
-.app { display: flex; flex-direction: column; height: 100vh; }
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 .sidebar { width: 320px; padding: 16px; background: var(--bg-alt); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.sidebar-toggle { display: none; }
+.sidebar-backdrop { display: none; }
 .sidebar h1 { font-size: 18px; margin: 0 0 8px; }
 .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
 .message-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -112,7 +114,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 /* Password gate */
 .password-gate { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.password-card { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 360px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow); }
+.password-card { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: min(360px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow); }
 .password-card h2 { margin: 0; font-size: 18px; }
 .password-card p { margin: 0; color: var(--text-dim); font-size: 14px; }
 
@@ -143,6 +145,11 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* Webagent UI iframe */
 .webagent-ui-frame { width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff; min-height: 120px; }
 
+/* Terminal tab */
+.terminal-body { flex: 1; min-height: 0; padding: 8px; background: var(--bg); overflow: hidden; }
+.terminal-body .xterm { height: 100%; }
+.terminal-body .xterm-screen { height: 100% !important; }
+
 /* Model picker groups */
 .model-group-label { font-size: 11px; color: var(--text-dim); padding: 4px 8px; background: var(--bg); pointer-events: none; }
 
@@ -154,3 +161,58 @@ input[type=range] { height: 4px; cursor: pointer; }
 .nav-tab { padding: 10px 14px; font-size: 13px; cursor: pointer; border: none; background: none; color: var(--text-dim); border-bottom: 2px solid transparent; border-radius: 0; transition: color 0.12s ease; }
 .nav-tab:hover:not(:disabled) { color: var(--text); filter: none; }
 .nav-tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* Mobile layout */
+@media (max-width: 768px) {
+  /* Sidebar becomes a slide-in drawer under the top nav */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(320px, 85vw);
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: none;
+  }
+  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4); }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 30; }
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    padding: 8px 10px;
+    margin-left: -8px;
+  }
+  .sidebar-toggle:hover:not(:disabled) { filter: none; }
+
+  /* Overlay pages cover the full width (no sidebar offset) */
+  .overlay-page { left: 0; }
+
+  /* Top nav: tighter, scrollable if it overflows */
+  .app-nav { padding: 0 8px; overflow-x: auto; }
+  .app-nav > span { white-space: nowrap; }
+  .nav-tab { padding: 12px 10px; white-space: nowrap; }
+
+  /* Messages use more of the narrow screen */
+  .msg, .msg-tool { max-width: 95%; }
+  .message-list { padding: 12px; }
+
+  /* Composer: comfortable tap targets + safe area for notched phones */
+  .composer { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .composer button { min-height: 44px; min-width: 64px; }
+
+  /* 16px inputs prevent iOS Safari from zooming on focus */
+  textarea, input, select { font-size: 16px; }
+
+  /* Settings rows stack vertically on narrow screens */
+  .settings-row { flex-wrap: wrap; }
+  .settings-row label { min-width: 100%; }
+
+  .empty-state { padding: 0 16px; }
+}

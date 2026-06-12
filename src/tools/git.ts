@@ -39,7 +39,7 @@ async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
   }
 }
 
-const http: HttpClient = { request: proxyRequest }
+export const http: HttpClient = { request: proxyRequest }
 
 const gitInit: ToolDef = {
   name: 'git_init',

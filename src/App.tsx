@@ -22,6 +22,7 @@ import { PasswordGate } from './ui/PasswordGate'
 import { SettingsPage } from './ui/SettingsPage'
 import { PluginsPanel } from './ui/PluginsPanel'
 import { FileManager } from './ui/FileManager'
+import { Terminal } from './ui/Terminal'
 
 const localProvider = new LocalProvider()
 
@@ -46,7 +47,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'files', description: 'Browse and edit files', icon: '📂' },
 ]
 
-type View = 'chat' | 'settings' | 'files'
+type View = 'chat' | 'settings' | 'files' | 'terminal'
 type PasswordGateMode = 'setup' | 'unlock' | null
 
 const trimContext = (msgs: ChatMessage[], max: number): ChatMessage[] => {
@@ -92,6 +93,7 @@ export default function App() {
   })
   const [mcpTools, setMcpTools] = useState<ToolDef[]>([])
   const [view, setView] = useState<View>('chat')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [passwordGateMode, setPasswordGateMode] = useState<PasswordGateMode>(() => {
     if (detectEncryptionEnabled()) return 'unlock'
     return null
@@ -369,10 +371,19 @@ export default function App() {
   return (
     <div className="app" style={{ flexDirection: 'column' }}>
       <div className="app-nav">
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarOpen((o) => !o)}
+          aria-label="Toggle sidebar"
+          aria-expanded={sidebarOpen}
+        >
+          ☰
+        </button>
         <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>WebGPU Agent</span>
         <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>Chat</button>
         <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
         <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
+        <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => setView('terminal')}>Terminal</button>
         {!hasPassword() && (
           <button
             className="nav-tab"
@@ -385,7 +396,8 @@ export default function App() {
         )}
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <aside className="sidebar">
+        {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+        <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
           <ModelPicker
             mode={mode}
             setMode={setMode}
@@ -409,6 +421,7 @@ export default function App() {
             onClick={() => {
               setMessages([])
               setDisplay([])
+              setSidebarOpen(false)
             }}
             disabled={busy}
           >
@@ -449,6 +462,9 @@ export default function App() {
           {view === 'files' && (
             <FileManager onClose={() => setView('chat')} />
           )}
+          <div style={{ display: view === 'terminal' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+            <Terminal onClose={() => setView('chat')} active={view === 'terminal'} />
+          </div>
           {view === 'chat' && (
             <>
               <MessageList items={display} />
