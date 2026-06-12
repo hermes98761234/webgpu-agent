@@ -35,3 +35,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .dim { color: var(--text-dim); font-size: 12px; margin: 0; }
 .model-picker select, .model-picker input { width: 100%; min-width: 0; }
 .system-prompt { width: 100%; }
+.panel { border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+.panel summary { cursor: pointer; font-weight: 600; }
+.panel-item { margin: 8px 0; justify-content: space-between; }
+.panel-item span { overflow: hidden; text-overflow: ellipsis; }
+.panel input, .panel textarea { width: 100%; }

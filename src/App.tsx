@@ -9,6 +9,8 @@ import { Composer } from './ui/Composer'
 import { MessageList, type DisplayItem } from './ui/MessageList'
 import { ModelPicker, type ProviderMode } from './ui/ModelPicker'
 import { usePersistedState } from './ui/usePersistedState'
+import { SkillsPanel } from './ui/SkillsPanel'
+import { McpPanel } from './ui/McpPanel'
 
 const localProvider = new LocalProvider()
 
@@ -137,8 +139,8 @@ export default function App() {
         >
           New chat
         </button>
-        {/* SkillsPanel and McpPanel mount here in a later task; setMcpTools is wired then */}
-        <div style={{ display: 'none' }}>{mcpTools.length}{void setMcpTools}</div>
+        <SkillsPanel disabled={busy} />
+        <McpPanel disabled={busy} onToolsChange={setMcpTools} />
       </aside>
       <section className="chat">
         <MessageList items={display} />
