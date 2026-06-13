@@ -65,3 +65,44 @@ describe('ApiProvider', () => {
     ).rejects.toThrow(/401/)
   })
 })
+
+describe('ApiProvider.extraHeaders', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns attribution headers when kind is openrouter', () => {
+    vi.stubGlobal('location', { origin: 'https://test.app' })
+    const provider = new ApiProvider({
+      kind: 'openrouter',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: 'k',
+      model: 'm',
+    })
+    expect(provider.extraHeaders()).toEqual({
+      'HTTP-Referer': 'https://test.app',
+      'X-OpenRouter-Title': 'WebGPU Agent',
+      'X-OpenRouter-Categories': 'personal-agent',
+    })
+  })
+
+  it('returns empty object when kind is not openrouter', () => {
+    const provider = new ApiProvider({
+      kind: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'k',
+      model: 'm',
+    })
+    expect(provider.extraHeaders()).toEqual({})
+  })
+
+  it('returns empty object when kind is custom', () => {
+    const provider = new ApiProvider({
+      kind: 'custom',
+      baseUrl: 'https://x.test/v1',
+      apiKey: 'k',
+      model: 'm',
+    })
+    expect(provider.extraHeaders()).toEqual({})
+  })
+})

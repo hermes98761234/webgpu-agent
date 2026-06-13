@@ -37,6 +37,7 @@ export interface AgentSettings {
 
 export interface Provider {
   supportsNativeTools: boolean
+  extraHeaders?(): Record<string, string>
   chat(
     messages: ChatMessage[],
     tools: ToolDef[],

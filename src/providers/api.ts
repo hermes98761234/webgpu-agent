@@ -58,6 +58,15 @@ export class ApiProvider implements Provider {
     this.#config = config
   }
 
+  extraHeaders(): Record<string, string> {
+    if (this.#config.kind !== 'openrouter') return {}
+    return {
+      'HTTP-Referer': location.origin,
+      'X-OpenRouter-Title': 'WebGPU Agent',
+      'X-OpenRouter-Categories': 'personal-agent',
+    }
+  }
+
   async chat(
     messages: ChatMessage[],
     tools: ToolDef[],
