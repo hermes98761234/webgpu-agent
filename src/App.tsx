@@ -27,6 +27,9 @@ import { FileManager } from './ui/FileManager'
 import { Terminal } from './ui/Terminal'
 import { LogPanel } from './ui/LogPanel'
 import { pushLlmRequest, pushLlmResponse } from './ui/logStore'
+import { generateSessionId, listSessions, loadSession, saveSession, deleteSession, renameSession, type SessionMeta } from './store/sessions'
+import { nameSession } from './agent/nameSession'
+import { HistoryPanel } from './ui/HistoryPanel'
 
 const localProvider = new LocalProvider()
 
@@ -110,8 +113,85 @@ export default function App() {
   const toolsRef = useRef<ToolDef[]>([])
   const initStarted = useRef(false)
 
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [sessionName, setSessionName] = useState('New chat')
+  const sessionNameRef = useRef('New chat')
+  const sessionCreatedAtRef = useRef<number>(Date.now())
+  const sessionNamedRef = useRef(false)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+
+  const saveCurrentSession = async (msgs: ChatMessage[], disp: DisplayItem[], sid: string) => {
+    if (!sid || msgs.length === 0) return
+    const firstUser = msgs.find((m) => m.role === 'user')
+    const meta: SessionMeta = {
+      id: sid,
+      name: sessionNameRef.current,
+      createdAt: sessionCreatedAtRef.current,
+      updatedAt: Date.now(),
+      preview: firstUser?.content.slice(0, 80) ?? '',
+    }
+    const cleanDisplay = disp.map((item) =>
+      item.kind === 'assistant' && item.streaming ? { ...item, streaming: false } : item
+    )
+    await saveSession(meta, { messages: msgs, display: cleanDisplay })
+    setHistoryRefreshKey((k) => k + 1)
+  }
+
+  const loadSessionById = async (id: string) => {
+    if (currentSessionId && messages.length > 0) {
+      await saveCurrentSession(messages, display, currentSessionId)
+    }
+    const data = await loadSession(id)
+    if (!data) return
+    const sessions = await listSessions()
+    const meta = sessions.find((s) => s.id === id)
+    setMessages(data.messages)
+    setDisplay(data.display)
+    setCurrentSessionId(id)
+    sessionNameRef.current = meta?.name ?? 'Chat'
+    setSessionName(meta?.name ?? 'Chat')
+    sessionNamedRef.current = true
+    sessionCreatedAtRef.current = meta?.createdAt ?? Date.now()
+    setSidebarOpen(false)
+  }
+
+  const deleteSessionById = async (id: string) => {
+    await deleteSession(id)
+    if (currentSessionId === id) {
+      setMessages([])
+      setDisplay([])
+      setCurrentSessionId(null)
+      sessionNameRef.current = 'New chat'
+      setSessionName('New chat')
+      sessionNamedRef.current = false
+      sessionCreatedAtRef.current = Date.now()
+    }
+    setHistoryRefreshKey((k) => k + 1)
+  }
+
   const getProvider = (): Provider => providerRef.current!
   const getTools = (): ToolDef[] => toolsRef.current
+
+  // Auto-save current session and trigger LLM naming when idle
+  useEffect(() => {
+    if (busy || !currentSessionId || messages.length === 0) return
+    void saveCurrentSession(messages, display, currentSessionId)
+    if (!sessionNamedRef.current && providerRef.current) {
+      const userMsg = messages.find((m) => m.role === 'user')
+      const assistantMsg = messages.find((m) => m.role === 'assistant')
+      if (userMsg && assistantMsg) {
+        sessionNamedRef.current = true
+        const sid = currentSessionId
+        void nameSession(providerRef.current, userMsg.content, assistantMsg.content)
+          .then((name) => {
+            sessionNameRef.current = name
+            setSessionName(name)
+            void renameSession(sid, name).then(() => setHistoryRefreshKey((k) => k + 1))
+          })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy])
 
   const handleEvent = (e: AgentEvent) => {
     setDisplay((d) => {
@@ -218,6 +298,13 @@ export default function App() {
   const send = async (text: string) => {
     if (busy) return
     setBusy(true)
+    if (!currentSessionId) {
+      const newId = generateSessionId()
+      setCurrentSessionId(newId)
+      sessionCreatedAtRef.current = Date.now()
+      sessionNamedRef.current = false
+      sessionNameRef.current = 'New chat'
+    }
     const rawHistory: ChatMessage[] = [...messages, { role: 'user', content: text }]
     const history = trimContext(rawHistory, agentSettings.maxContextMessages)
     setMessages(history)
@@ -393,7 +480,7 @@ export default function App() {
         >
           ☰
         </button>
-        <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>WebGPU Agent</span>
+        <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>{sessionName}</span>
         <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>Chat</button>
         <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
         <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
@@ -433,15 +520,30 @@ export default function App() {
             disabled={busy}
           />
           <button
-            onClick={() => {
+            onClick={async () => {
+              if (currentSessionId && messages.length > 0) {
+                await saveCurrentSession(messages, display, currentSessionId)
+              }
               setMessages([])
               setDisplay([])
+              setCurrentSessionId(null)
+              sessionNameRef.current = 'New chat'
+              setSessionName('New chat')
+              sessionNamedRef.current = false
+              sessionCreatedAtRef.current = Date.now()
+              setHistoryRefreshKey((k) => k + 1)
               setSidebarOpen(false)
             }}
             disabled={busy}
           >
             New chat
           </button>
+          <HistoryPanel
+            currentSessionId={currentSessionId}
+            onLoad={loadSessionById}
+            onDelete={deleteSessionById}
+            refreshKey={historyRefreshKey}
+          />
           <SkillsPanel
             disabled={busy}
             skills={skills}

@@ -1,3 +1,5 @@
+// Encryption is handled transparently by the store wrapper — setStoreItem encrypts
+// when a password is active, and all webgpu-agent.* keys are re-encrypted on change.
 import { getStoreItem, setStoreItem, removeStoreItem } from './index'
 import type { ChatMessage } from '../types'
 import type { DisplayItem } from '../ui/MessageList'
