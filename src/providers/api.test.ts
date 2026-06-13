@@ -64,6 +64,42 @@ describe('ApiProvider', () => {
       provider.chat([{ role: 'user', content: 'hi' }], [], () => {}),
     ).rejects.toThrow(/401/)
   })
+
+  it('sends attribution headers when kind is openrouter', async () => {
+    vi.stubGlobal('location', { origin: 'https://my.app' })
+    const mockFetch = vi.fn(async () =>
+      sseResponse(['data: {"choices":[{"delta":{"content":"ok"}}]}', 'data: [DONE]']),
+    )
+    vi.stubGlobal('fetch', mockFetch)
+    const provider = new ApiProvider({
+      kind: 'openrouter',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: 'k',
+      model: 'm',
+    })
+    await provider.chat([{ role: 'user', content: 'hi' }], [], () => {})
+    const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>
+    expect(headers['HTTP-Referer']).toBe('https://my.app')
+    expect(headers['X-OpenRouter-Title']).toBe('WebGPU Agent')
+    expect(headers['X-OpenRouter-Categories']).toBe('personal-agent')
+  })
+
+  it('does not send attribution headers when kind is not openrouter', async () => {
+    const mockFetch = vi.fn(async () =>
+      sseResponse(['data: {"choices":[{"delta":{"content":"ok"}}]}', 'data: [DONE]']),
+    )
+    vi.stubGlobal('fetch', mockFetch)
+    const provider = new ApiProvider({
+      kind: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'k',
+      model: 'm',
+    })
+    await provider.chat([{ role: 'user', content: 'hi' }], [], () => {})
+    const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>
+    expect(headers['HTTP-Referer']).toBeUndefined()
+    expect(headers['X-OpenRouter-Title']).toBeUndefined()
+  })
 })
 
 describe('ApiProvider.extraHeaders', () => {

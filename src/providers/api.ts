@@ -95,6 +95,7 @@ export class ApiProvider implements Provider {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.#config.apiKey}`,
+        ...this.extraHeaders(),
       },
       body: JSON.stringify(body),
       signal,
