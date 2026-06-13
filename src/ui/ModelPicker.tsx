@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_PRESETS } from '../providers/api'
+import { analyzeGpuRestrictions } from '../gpu-restrictions'
 import { detectGpuCaps, deviceModels, webgpuAvailable } from '../providers/local'
 import type { GpuCaps } from '../providers/local'
 import type { ApiConfig } from '../types'
@@ -17,12 +18,27 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
   onLoadLocal: () => void
   busy: boolean
 }) {
-  const models = deviceModels()
-  const families = [...new Set(models.map((m) => m.family))]
+  const allModels = deviceModels()
   const [caps, setCaps] = useState<GpuCaps | null>(null)
   useEffect(() => {
     void detectGpuCaps().then(setCaps)
   }, [])
+
+  const hwString = caps
+    ? `GPU: ${caps.gpu} · FP16 ${caps.f16Trusted ? 'trusted' : 'untrusted — q4f32 models will be substituted'}`
+    : ''
+  const restriction = analyzeGpuRestrictions(hwString)
+  const models = restriction.disabled_precisions.length > 0
+    ? allModels.filter((m) => !restriction.disabled_precisions.some((p) => m.id.includes(p)))
+    : allModels
+
+  useEffect(() => {
+    if (models.length > 0 && !models.some((m) => m.id === localModel)) {
+      setLocalModel(models[0].id)
+    }
+  }, [hwString])
+
+  const families = [...new Set(models.map((m) => m.family))]
 
   return (
     <div className="model-picker">
@@ -69,6 +85,9 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
             <p className="dim">
               GPU: {caps.gpu} · FP16 {caps.f16Trusted ? 'trusted' : 'untrusted — q4f32 models will be substituted'}
             </p>
+          )}
+          {restriction.status === 'restricted' && (
+            <p className="warn">{restriction.reason}</p>
           )}
         </div>
       )}
