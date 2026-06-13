@@ -106,3 +106,5 @@ export type AgentEvent =
   | { type: 'tool_result'; call: ToolCall; result: string; isError: boolean }
   | { type: 'error'; error: string }
   | { type: 'status'; text: string }
+  | { type: 'llm_request'; messages: ChatMessage[] }
+  | { type: 'llm_response'; content: string }

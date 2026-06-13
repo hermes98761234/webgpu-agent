@@ -22,10 +22,12 @@ export async function runAgent(
     system ? [{ role: 'system', content: system }, ...messages] : [...messages]
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const outgoing = withSystem()
+    onEvent({ type: 'llm_request', messages: outgoing })
     let result
     try {
       result = await provider.chat(
-        withSystem(),
+        outgoing,
         provider.supportsNativeTools ? tools : [],
         (text) => onEvent({ type: 'assistant_delta', text }),
         signal,
@@ -41,6 +43,7 @@ export async function runAgent(
       calls = parseToolCalls(result.content)
     }
 
+    onEvent({ type: 'llm_response', content: result.content })
     const assistant: ChatMessage = { role: 'assistant', content: result.content }
     if (calls.length > 0) assistant.toolCalls = calls
     messages.push(assistant)

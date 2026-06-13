@@ -25,6 +25,8 @@ import { SettingsPage } from './ui/SettingsPage'
 import { PluginsPanel } from './ui/PluginsPanel'
 import { FileManager } from './ui/FileManager'
 import { Terminal } from './ui/Terminal'
+import { LogPanel } from './ui/LogPanel'
+import { pushLlmRequest, pushLlmResponse } from './ui/logStore'
 
 const localProvider = new LocalProvider()
 
@@ -49,7 +51,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'files', description: 'Browse and edit files', icon: '📂' },
 ]
 
-type View = 'chat' | 'settings' | 'files' | 'terminal'
+type View = 'chat' | 'settings' | 'files' | 'terminal' | 'log'
 type PasswordGateMode = 'setup' | 'unlock' | null
 
 const trimContext = (msgs: ChatMessage[], max: number): ChatMessage[] => {
@@ -137,6 +139,10 @@ export default function App() {
         }
       } else if (e.type === 'error') {
         next.push({ kind: 'error', text: e.error })
+      } else if (e.type === 'llm_request') {
+        pushLlmRequest(e.messages)
+      } else if (e.type === 'llm_response') {
+        pushLlmResponse(e.content)
       }
       return next
     })
@@ -392,6 +398,7 @@ export default function App() {
         <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
         <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
         <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => setView('terminal')}>Terminal</button>
+        <button className={`nav-tab${view === 'log' ? ' active' : ''}`} onClick={() => setView('log')}>Log</button>
         {!hasPassword() && (
           <button
             className="nav-tab"
@@ -478,6 +485,7 @@ export default function App() {
           <div style={{ display: view === 'terminal' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
             <Terminal onClose={() => setView('chat')} active={view === 'terminal'} />
           </div>
+          {view === 'log' && <LogPanel />}
           {view === 'chat' && (
             <>
               <MessageList items={display} />
