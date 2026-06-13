@@ -116,7 +116,7 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [sessionName, setSessionName] = useState('New chat')
   const sessionNameRef = useRef('New chat')
-  const sessionCreatedAtRef = useRef<number>(Date.now())
+  const sessionCreatedAtRef = useRef<number>(0)
   const sessionNamedRef = useRef(false)
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
 
@@ -175,6 +175,7 @@ export default function App() {
   // Auto-save current session and trigger LLM naming when idle
   useEffect(() => {
     if (busy || !currentSessionId || messages.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void saveCurrentSession(messages, display, currentSessionId)
     if (!sessionNamedRef.current && providerRef.current) {
       const userMsg = messages.find((m) => m.role === 'user')
