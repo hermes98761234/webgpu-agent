@@ -78,7 +78,8 @@ describe('ApiProvider', () => {
       model: 'm',
     })
     await provider.chat([{ role: 'user', content: 'hi' }], [], () => {})
-    const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>
+    const [, init1] = mockFetch.mock.calls[0] as unknown as [unknown, RequestInit]
+    const headers = init1.headers as Record<string, string>
     expect(headers['HTTP-Referer']).toBe('https://my.app')
     expect(headers['X-OpenRouter-Title']).toBe('WebGPU Agent')
     expect(headers['X-OpenRouter-Categories']).toBe('personal-agent')
@@ -96,7 +97,8 @@ describe('ApiProvider', () => {
       model: 'm',
     })
     await provider.chat([{ role: 'user', content: 'hi' }], [], () => {})
-    const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>
+    const [, init2] = mockFetch.mock.calls[0] as unknown as [unknown, RequestInit]
+    const headers = init2.headers as Record<string, string>
     expect(headers['HTTP-Referer']).toBeUndefined()
     expect(headers['X-OpenRouter-Title']).toBeUndefined()
   })

@@ -2,17 +2,18 @@ let seq = 0
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug'
 
-export type LogEntry = { id: number; ts: number } & (
+type LogEntryData =
   | { kind: 'console'; level: LogLevel; text: string }
   | { kind: 'js-error'; text: string }
   | { kind: 'llm-request'; messages: unknown[] }
   | { kind: 'llm-response'; content: string }
-)
+
+export type LogEntry = { id: number; ts: number } & LogEntryData
 
 const entries: LogEntry[] = []
 const listeners = new Set<() => void>()
 
-function push(entry: Omit<LogEntry, 'id' | 'ts'>) {
+function push(entry: LogEntryData) {
   entries.push({ id: seq++, ts: Date.now(), ...entry } as LogEntry)
   if (entries.length > 2000) entries.splice(0, entries.length - 2000)
   for (const l of listeners) l()

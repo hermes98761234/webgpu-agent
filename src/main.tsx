@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer'
-if (typeof window !== 'undefined' && !window.Buffer) (window as unknown as Record<string, unknown>).Buffer = Buffer
+if (typeof window !== 'undefined' && !('Buffer' in window)) (window as unknown as Record<string, unknown>).Buffer = Buffer
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
