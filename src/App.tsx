@@ -104,7 +104,6 @@ export default function App() {
   const initialRoute = parseHash()
   const [view, setView] = useState<View>(initialRoute.view)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const initialRoute = parseHash()
   const needsPasswordGate = detectEncryptionEnabled() && initialRoute.view === 'chat' && initialRoute.sessionId
   const [passwordGateMode, setPasswordGateMode] = useState<PasswordGateMode>(() => {
     if (needsPasswordGate) return 'unlock'
@@ -279,7 +278,7 @@ export default function App() {
   useEffect(() => {
     const route = parseHash()
     if (needsPasswordGate) {
-      pendingSessionRef.current = route.sessionId
+      pendingSessionRef.current = route.sessionId ?? null
       return
     }
     if (route.view === 'chat' && route.sessionId) {
