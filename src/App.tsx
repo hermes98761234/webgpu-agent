@@ -282,6 +282,7 @@ export default function App() {
       return
     }
     if (route.view === 'chat' && route.sessionId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadSessionById(route.sessionId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
