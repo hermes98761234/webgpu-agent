@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { parseHash, replaceHash, pushHash } from './router'
 import { runAgent } from './agent/loop'
 import { DEFAULT_SYSTEM_PROMPT, initAgentHome, writeAgentMd } from './agenthome'
 import { ApiProvider } from './providers/api'
@@ -100,9 +101,13 @@ export default function App() {
     text: '',
   })
   const [mcpTools, setMcpTools] = useState<ToolDef[]>([])
-  const [view, setView] = useState<View>('chat')
+  const initialRoute = parseHash()
+  const [view, setView] = useState<View>(initialRoute.view)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const initialRoute = parseHash()
+  const needsPasswordGate = detectEncryptionEnabled() && initialRoute.view === 'chat' && initialRoute.sessionId
   const [passwordGateMode, setPasswordGateMode] = useState<PasswordGateMode>(() => {
+    if (needsPasswordGate) return 'unlock'
     if (detectEncryptionEnabled()) return 'unlock'
     return null
   })
@@ -120,6 +125,7 @@ export default function App() {
   const sessionCreatedAtRef = useRef<number>(0)
   const sessionNamedRef = useRef(false)
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+  const pendingSessionRef = useRef<string | null>(null)
 
   const saveCurrentSession = async (msgs: ChatMessage[], disp: DisplayItem[], sid: string) => {
     if (!sid || msgs.length === 0) return
@@ -154,6 +160,7 @@ export default function App() {
     sessionNamedRef.current = true
     sessionCreatedAtRef.current = meta?.createdAt ?? Date.now()
     setSidebarOpen(false)
+    replaceHash({ view: 'chat', sessionId: id })
   }
 
   const deleteSessionById = async (id: string) => {
@@ -166,6 +173,7 @@ export default function App() {
       setSessionName('New chat')
       sessionNamedRef.current = false
       sessionCreatedAtRef.current = Date.now()
+      replaceHash({ view: 'chat' })
     }
     setHistoryRefreshKey((k) => k + 1)
   }
@@ -268,6 +276,31 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    const route = parseHash()
+    if (needsPasswordGate) {
+      pendingSessionRef.current = route.sessionId
+      return
+    }
+    if (route.view === 'chat' && route.sessionId) {
+      void loadSessionById(route.sessionId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const route = parseHash()
+      setView(route.view)
+      if (route.view === 'chat' && route.sessionId) {
+        void loadSessionById(route.sessionId)
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const getAllSkills = (): Skill[] => [
     ...skills,
     ...plugins
@@ -303,6 +336,7 @@ export default function App() {
     if (!currentSessionId) {
       const newId = generateSessionId()
       setCurrentSessionId(newId)
+      replaceHash({ view: 'chat', sessionId: newId })
       sessionCreatedAtRef.current = Date.now()
       sessionNamedRef.current = false
       sessionNameRef.current = 'New chat'
@@ -356,11 +390,11 @@ export default function App() {
       return
     }
     if (command === 'settings') {
-      setView('settings')
+      pushHash({ view: 'settings' })
       return
     }
     if (command === 'files') {
-      setView('files')
+      pushHash({ view: 'files' })
       return
     }
     if (command === 'help') {
@@ -440,12 +474,22 @@ export default function App() {
     await setStorePassword(password)
     setIsUnlocked(true)
     setPasswordGateMode(null)
+    if (pendingSessionRef.current) {
+      const sessionId = pendingSessionRef.current
+      pendingSessionRef.current = null
+      void loadSessionById(sessionId)
+    }
     return null
   }
 
   const handlePasswordSkip = () => {
     setIsUnlocked(true)
     setPasswordGateMode(null)
+    if (pendingSessionRef.current) {
+      const sessionId = pendingSessionRef.current
+      pendingSessionRef.current = null
+      void loadSessionById(sessionId)
+    }
   }
 
   const handleChangePassword = () => {
@@ -483,12 +527,12 @@ export default function App() {
           ☰
         </button>
         <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>{sessionName}</span>
-        <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>Chat</button>
-        <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => setView('settings')}>Settings</button>
-        <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
-        <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => setView('terminal')}>Terminal</button>
-        <button className={`nav-tab${view === 'log' ? ' active' : ''}`} onClick={() => setView('log')}>Log</button>
-        <button className={`nav-tab${view === 'about' ? ' active' : ''}`} onClick={() => setView('about')}>About</button>
+        <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })}>Chat</button>
+        <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => pushHash({ view: 'settings' })}>Settings</button>
+        <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => pushHash({ view: 'files' })}>Files</button>
+        <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => pushHash({ view: 'terminal' })}>Terminal</button>
+        <button className={`nav-tab${view === 'log' ? ' active' : ''}`} onClick={() => pushHash({ view: 'log' })}>Log</button>
+        <button className={`nav-tab${view === 'about' ? ' active' : ''}`} onClick={() => pushHash({ view: 'about' })}>About</button>
         {!hasPassword() && (
           <button
             className="nav-tab"
@@ -536,6 +580,7 @@ export default function App() {
               sessionCreatedAtRef.current = Date.now()
               setHistoryRefreshKey((k) => k + 1)
               setSidebarOpen(false)
+              replaceHash({ view: 'chat' })
             }}
             disabled={busy}
           >
@@ -558,7 +603,7 @@ export default function App() {
         <section className="chat" style={{ position: 'relative' }}>
           {view === 'settings' && (
             <SettingsPage
-              onClose={() => setView('chat')}
+              onClose={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })}
               temperature={agentSettings.temperature}
               topP={agentSettings.topP}
               maxTokens={agentSettings.maxTokens}
@@ -585,10 +630,10 @@ export default function App() {
             />
           )}
           {view === 'files' && (
-            <FileManager onClose={() => setView('chat')} />
+            <FileManager onClose={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })} />
           )}
           <div style={{ display: view === 'terminal' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
-            <Terminal onClose={() => setView('chat')} active={view === 'terminal'} />
+            <Terminal onClose={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })} active={view === 'terminal'} />
           </div>
           {view === 'log' && <LogPanel />}
           {view === 'about' && <AboutPanel />}
