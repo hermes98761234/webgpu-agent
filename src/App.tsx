@@ -390,10 +390,12 @@ export default function App() {
       return
     }
     if (command === 'settings') {
+      setView('settings')
       pushHash({ view: 'settings' })
       return
     }
     if (command === 'files') {
+      setView('files')
       pushHash({ view: 'files' })
       return
     }
@@ -527,12 +529,12 @@ export default function App() {
           ☰
         </button>
         <span style={{ fontWeight: 700, fontSize: 15, marginRight: 8, color: 'var(--text)' }}>{sessionName}</span>
-        <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })}>Chat</button>
-        <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => pushHash({ view: 'settings' })}>Settings</button>
-        <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => pushHash({ view: 'files' })}>Files</button>
-        <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => pushHash({ view: 'terminal' })}>Terminal</button>
-        <button className={`nav-tab${view === 'log' ? ' active' : ''}`} onClick={() => pushHash({ view: 'log' })}>Log</button>
-        <button className={`nav-tab${view === 'about' ? ' active' : ''}`} onClick={() => pushHash({ view: 'about' })}>About</button>
+        <button className={`nav-tab${view === 'chat' ? ' active' : ''}`} onClick={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }}>Chat</button>
+        <button className={`nav-tab${view === 'settings' ? ' active' : ''}`} onClick={() => { setView('settings'); pushHash({ view: 'settings' }) }}>Settings</button>
+        <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => { setView('files'); pushHash({ view: 'files' }) }}>Files</button>
+        <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => { setView('terminal'); pushHash({ view: 'terminal' }) }}>Terminal</button>
+        <button className={`nav-tab${view === 'log' ? ' active' : ''}`} onClick={() => { setView('log'); pushHash({ view: 'log' }) }}>Log</button>
+        <button className={`nav-tab${view === 'about' ? ' active' : ''}`} onClick={() => { setView('about'); pushHash({ view: 'about' }) }}>About</button>
         {!hasPassword() && (
           <button
             className="nav-tab"
@@ -603,7 +605,7 @@ export default function App() {
         <section className="chat" style={{ position: 'relative' }}>
           {view === 'settings' && (
             <SettingsPage
-              onClose={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })}
+              onClose={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }}
               temperature={agentSettings.temperature}
               topP={agentSettings.topP}
               maxTokens={agentSettings.maxTokens}
@@ -630,10 +632,10 @@ export default function App() {
             />
           )}
           {view === 'files' && (
-            <FileManager onClose={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })} />
+            <FileManager onClose={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }} />
           )}
           <div style={{ display: view === 'terminal' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
-            <Terminal onClose={() => pushHash({ view: 'chat', sessionId: currentSessionId || undefined })} active={view === 'terminal'} />
+            <Terminal onClose={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }} active={view === 'terminal'} />
           </div>
           {view === 'log' && <LogPanel />}
           {view === 'about' && <AboutPanel />}
