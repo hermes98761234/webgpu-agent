@@ -26,6 +26,7 @@ import { PluginsPanel } from './ui/PluginsPanel'
 import { FileManager } from './ui/FileManager'
 import { Terminal } from './ui/Terminal'
 import { LogPanel } from './ui/LogPanel'
+import { AboutPanel } from './ui/AboutPanel'
 import { pushLlmRequest, pushLlmResponse } from './ui/logStore'
 import { generateSessionId, listSessions, loadSession, saveSession, deleteSession, renameSession, type SessionMeta } from './store/sessions'
 import { nameSession } from './agent/nameSession'
@@ -54,7 +55,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'files', description: 'Browse and edit files', icon: '📂' },
 ]
 
-type View = 'chat' | 'settings' | 'files' | 'terminal' | 'log'
+type View = 'chat' | 'settings' | 'files' | 'terminal' | 'log' | 'about'
 type PasswordGateMode = 'setup' | 'unlock' | null
 
 const trimContext = (msgs: ChatMessage[], max: number): ChatMessage[] => {
@@ -487,6 +488,7 @@ export default function App() {
         <button className={`nav-tab${view === 'files' ? ' active' : ''}`} onClick={() => setView('files')}>Files</button>
         <button className={`nav-tab${view === 'terminal' ? ' active' : ''}`} onClick={() => setView('terminal')}>Terminal</button>
         <button className={`nav-tab${view === 'log' ? ' active' : ''}`} onClick={() => setView('log')}>Log</button>
+        <button className={`nav-tab${view === 'about' ? ' active' : ''}`} onClick={() => setView('about')}>About</button>
         {!hasPassword() && (
           <button
             className="nav-tab"
@@ -589,6 +591,7 @@ export default function App() {
             <Terminal onClose={() => setView('chat')} active={view === 'terminal'} />
           </div>
           {view === 'log' && <LogPanel />}
+          {view === 'about' && <AboutPanel />}
           {view === 'chat' && (
             <>
               <MessageList items={display} />
