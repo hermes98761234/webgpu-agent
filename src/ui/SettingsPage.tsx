@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getCorsProxy } from '../tools/proxy'
 
 interface SettingsPageProps {
   onClose: () => void
@@ -37,6 +38,7 @@ export function SettingsPage(props: SettingsPageProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [debugPrompt, setDebugPrompt] = useState<string | null>(null)
   const [debugLoading, setDebugLoading] = useState(false)
+  const [corsProxy, setCorsProxy] = useState(getCorsProxy)
 
   async function handleDebug() {
     setDebugLoading(true)
@@ -288,6 +290,29 @@ export function SettingsPage(props: SettingsPageProps) {
             value={systemPrompt}
             onChange={(e) => onSystemPrompt(e.target.value)}
           />
+        </div>
+
+        {/* Network */}
+        <div style={sectionStyle}>
+          <p style={sectionTitle}>Network</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '14px' }}>CORS Proxy URL</label>
+            <input
+              type="text"
+              placeholder="https://your-proxy.example.com/?url={url}"
+              value={corsProxy}
+              onChange={(e) => {
+                const v = e.target.value
+                setCorsProxy(v)
+                try { localStorage.setItem('webgpu-agent.corsProxy', v) } catch { /* ignore */ }
+              }}
+              style={{ width: '100%' }}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+              Optional. Routes fetch requests through your own proxy to bypass CORS.
+              Use {'{url}'} as template for the target URL, or a prefix that the target is appended to.
+            </span>
+          </div>
         </div>
 
         {/* Data & Security */}

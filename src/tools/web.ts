@@ -1,4 +1,5 @@
 import type { ToolDef } from '../types'
+import { corsFetch } from './proxy'
 
 const weatherLookup: ToolDef = {
   name: 'weather_lookup',
@@ -13,7 +14,7 @@ const weatherLookup: ToolDef = {
     const location = String(args.location)
     try {
       const url = `https://wttr.in/${encodeURIComponent(location)}?format=j1`
-      const res = await fetch(url)
+      const res = await corsFetch(url)
       if (!res.ok) return `Error: HTTP ${res.status}`
       const json = await res.json()
       const current = json.current_condition?.[0]
@@ -48,7 +49,7 @@ const webSearch: ToolDef = {
     const query = String(args.query)
     try {
       const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
-      const res = await fetch(url, {
+      const res = await corsFetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0' },
       })
       if (!res.ok) return `Error: HTTP ${res.status}`

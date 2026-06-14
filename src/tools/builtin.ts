@@ -1,4 +1,5 @@
 import type { ToolDef } from '../types'
+import { corsFetch } from './proxy'
 import { runPython } from './python'
 
 const getTime: ToolDef = {
@@ -25,7 +26,7 @@ const fetchUrl: ToolDef = {
     const url = String(args.url ?? '')
     if (!/^https?:\/\//.test(url)) return 'Error: url must start with http:// or https://'
     try {
-      const res = await fetch(url)
+      const res = await corsFetch(url)
       const text = await res.text()
       return `HTTP ${res.status}\n${text.slice(0, 8000)}`
     } catch (e) {

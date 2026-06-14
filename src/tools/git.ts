@@ -2,12 +2,10 @@ import git from 'isomorphic-git'
 import defaultHttp from 'isomorphic-git/http/web'
 import type { GitHttpRequest, GitHttpResponse, HttpClient } from 'isomorphic-git/http/web'
 import type { ToolDef } from '../types'
+import { corsFetch } from './proxy'
 import { fs } from '../fs/setup'
 
-const CORS_PROXY = 'https://cors.io/?url='
-
 async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
-  const proxyUrl = CORS_PROXY + encodeURIComponent(req.url)
   try {
     let bodyInit: BodyInit | undefined
     if (req.body) {
@@ -19,7 +17,7 @@ async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
       for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length }
       bodyInit = merged
     }
-    const response = await fetch(proxyUrl, {
+    const response = await corsFetch(req.url, {
       method: req.method,
       headers: req.headers as Record<string, string>,
       body: bodyInit,
