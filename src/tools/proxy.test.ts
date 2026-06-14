@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { corsFetch, getCorsProxy } from './proxy'
+import { corsFetch, getCorsProxy, setCorsProxy, getEffectiveProxy } from './proxy'
 
 describe('corsFetch', () => {
   beforeEach(() => {
@@ -56,6 +56,19 @@ describe('corsFetch', () => {
     await corsFetch('https://target.com/resource/1', { method: 'PATCH' })
     expect((mockFetch.mock.calls[1] as unknown[])[1] as RequestInit).toHaveProperty('method', 'PATCH')
   })
+
+  it('throws helpful error when direct fetch fails due to CORS', async () => {
+    const mockFetch = vi.fn(async () => { throw new TypeError('Failed to fetch') })
+    vi.stubGlobal('fetch', mockFetch)
+    await expect(corsFetch('https://blocked.com')).rejects.toThrow('CORS blocked')
+  })
+
+  it('returns successful response even without proxy', async () => {
+    const mockFetch = vi.fn(async () => new Response('data', { status: 200 }))
+    vi.stubGlobal('fetch', mockFetch)
+    const res = await corsFetch('https://cors-enabled.com/data')
+    expect(res.ok).toBe(true)
+  })
 })
 
 describe('getCorsProxy', () => {
@@ -70,5 +83,37 @@ describe('getCorsProxy', () => {
   it('returns stored proxy URL', () => {
     localStorage.setItem('webgpu-agent.corsProxy', 'https://proxy.example.com/?url={url}')
     expect(getCorsProxy()).toBe('https://proxy.example.com/?url={url}')
+  })
+})
+
+describe('setCorsProxy', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('stores proxy URL', () => {
+    setCorsProxy('https://proxy.example.com/?url={url}')
+    expect(localStorage.getItem('webgpu-agent.corsProxy')).toBe('https://proxy.example.com/?url={url}')
+  })
+
+  it('overwrites existing proxy', () => {
+    setCorsProxy('https://old.com/?url={url}')
+    setCorsProxy('https://new.com/?url={url}')
+    expect(getCorsProxy()).toBe('https://new.com/?url={url}')
+  })
+})
+
+describe('getEffectiveProxy', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('returns default proxy when none configured', () => {
+    expect(getEffectiveProxy()).toBe('https://corsproxy.io/?url={url}')
+  })
+
+  it('returns configured proxy over default', () => {
+    localStorage.setItem('webgpu-agent.corsProxy', 'https://custom.com/proxy')
+    expect(getEffectiveProxy()).toBe('https://custom.com/proxy')
   })
 })
