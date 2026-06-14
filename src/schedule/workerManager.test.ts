@@ -1,4 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { pfs, ensureDir } from '../test/memfs'
+
+vi.mock('../fs/setup', () => ({
+  pfs,
+  ensureDir,
+  ROOT: '/',
+  HOME: '/home/user',
+  AGENT_DIR: '/home/user/.agent',
+  SKILLS_DIR: '/home/user/.agent/skills',
+  PLUGINS_DIR: '/home/user/.agent/plugins',
+  AGENT_MD: '/home/user/.agent/agent.md',
+  MCP_CONFIG: '/home/user/.agent/mcp.json',
+  MEMORY_DIR: '/home/user/.agent/memory',
+  MEMORY_INDEX: '/home/user/.agent/memory/MEMORY.md',
+}))
 
 const mockPostMessage = vi.fn()
 const mockTerminate = vi.fn()
