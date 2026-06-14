@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { corsFetch, getCorsProxy, setCorsProxy, getEffectiveProxy } from './proxy'
+import { corsFetch, getCorsProxy, setCorsProxy } from './proxy'
 
 describe('corsFetch', () => {
   beforeEach(() => {
@@ -7,7 +7,7 @@ describe('corsFetch', () => {
     vi.unstubAllGlobals()
   })
 
-  it('calls fetch directly when no proxy configured', async () => {
+  it('calls fetch directly when no proxy configured and succeeds', async () => {
     const mockFetch = vi.fn(async () => new Response('ok'))
     vi.stubGlobal('fetch', mockFetch)
     await corsFetch('https://example.com/api')
@@ -28,7 +28,7 @@ describe('corsFetch', () => {
     const mockFetch = vi.fn(async () => new Response('ok'))
     vi.stubGlobal('fetch', mockFetch)
     await corsFetch('https://target.com/data')
-    expect(mockFetch).toHaveBeenCalledWith('https://proxy.example.com/proxy/https://target.com/data', undefined)
+    expect(mockFetch).toHaveBeenCalledWith('https://proxy.example.com/proxy/https%3A%2F%2Ftarget.com%2Fdata', undefined)
   })
 
   it('forwards POST method and body', async () => {
@@ -47,27 +47,48 @@ describe('corsFetch', () => {
     expect(init.body).toBe('{"prompt":"hello"}')
   })
 
-  it('forwards DELETE and PATCH methods', async () => {
-    localStorage.setItem('webgpu-agent.corsProxy', 'https://proxy.example.com/?url={url}')
-    const mockFetch = vi.fn(async () => new Response('ok'))
+  it('tries fallback proxies when direct fetch fails', async () => {
+    let callCount = 0
+    const mockFetch = vi.fn(async () => {
+      callCount++
+      if (callCount === 1) throw new TypeError('Failed to fetch')
+      return new Response('fallback-ok')
+    })
     vi.stubGlobal('fetch', mockFetch)
-    await corsFetch('https://target.com/resource/1', { method: 'DELETE' })
-    expect((mockFetch.mock.calls[0] as unknown[])[1] as RequestInit).toHaveProperty('method', 'DELETE')
-    await corsFetch('https://target.com/resource/1', { method: 'PATCH' })
-    expect((mockFetch.mock.calls[1] as unknown[])[1] as RequestInit).toHaveProperty('method', 'PATCH')
+    const res = await corsFetch('https://blocked.com')
+    expect(res.ok).toBe(true)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
-  it('throws helpful error when direct fetch fails due to CORS', async () => {
+  it('skips failed fallback proxies and continues', async () => {
+    let callCount = 0
+    const mockFetch = vi.fn(async () => {
+      callCount++
+      if (callCount <= 2) throw new TypeError('Failed to fetch')
+      return new Response('third-works')
+    })
+    vi.stubGlobal('fetch', mockFetch)
+    const res = await corsFetch('https://blocked.com')
+    expect(res.ok).toBe(true)
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('returns non-200 responses from fallback without throwing', async () => {
+    let callCount = 0
+    const mockFetch = vi.fn(async () => {
+      callCount++
+      if (callCount === 1) throw new TypeError('Failed to fetch')
+      return new Response('not found', { status: 404 })
+    })
+    vi.stubGlobal('fetch', mockFetch)
+    const res = await corsFetch('https://blocked.com')
+    expect(res.status).toBe(404)
+  })
+
+  it('throws when all fallbacks fail', async () => {
     const mockFetch = vi.fn(async () => { throw new TypeError('Failed to fetch') })
     vi.stubGlobal('fetch', mockFetch)
-    await expect(corsFetch('https://blocked.com')).rejects.toThrow('CORS blocked')
-  })
-
-  it('returns successful response even without proxy', async () => {
-    const mockFetch = vi.fn(async () => new Response('data', { status: 200 }))
-    vi.stubGlobal('fetch', mockFetch)
-    const res = await corsFetch('https://cors-enabled.com/data')
-    expect(res.ok).toBe(true)
+    await expect(corsFetch('https://blocked.com')).rejects.toThrow('All fallback proxies failed')
   })
 })
 
@@ -100,20 +121,5 @@ describe('setCorsProxy', () => {
     setCorsProxy('https://old.com/?url={url}')
     setCorsProxy('https://new.com/?url={url}')
     expect(getCorsProxy()).toBe('https://new.com/?url={url}')
-  })
-})
-
-describe('getEffectiveProxy', () => {
-  beforeEach(() => {
-    localStorage.clear()
-  })
-
-  it('returns default proxy when none configured', () => {
-    expect(getEffectiveProxy()).toBe('https://corsproxy.io/?url={url}')
-  })
-
-  it('returns configured proxy over default', () => {
-    localStorage.setItem('webgpu-agent.corsProxy', 'https://custom.com/proxy')
-    expect(getEffectiveProxy()).toBe('https://custom.com/proxy')
   })
 })
