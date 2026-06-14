@@ -180,28 +180,6 @@ export default function App() {
   const getProvider = (): Provider => providerRef.current!
   const getTools = (): ToolDef[] => toolsRef.current
 
-  // Auto-save current session and trigger LLM naming when idle
-  useEffect(() => {
-    if (busy || !currentSessionId || messages.length === 0) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void saveCurrentSession(messages, display, currentSessionId)
-    if (!sessionNamedRef.current && providerRef.current) {
-      const userMsg = messages.find((m) => m.role === 'user')
-      const assistantMsg = messages.find((m) => m.role === 'assistant')
-      if (userMsg && assistantMsg) {
-        sessionNamedRef.current = true
-        const sid = currentSessionId
-        void nameSession(providerRef.current, userMsg.content, assistantMsg.content)
-          .then((name) => {
-            sessionNameRef.current = name
-            setSessionName(name)
-            void renameSession(sid, name).then(() => setHistoryRefreshKey((k) => k + 1))
-          })
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy])
-
   const handleEvent = (e: AgentEvent) => {
     setDisplay((d) => {
       const next = [...d]
@@ -236,6 +214,28 @@ export default function App() {
       return next
     })
   }
+
+  // Auto-save current session and trigger LLM naming when idle
+  useEffect(() => {
+    if (busy || !currentSessionId || messages.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void saveCurrentSession(messages, display, currentSessionId)
+    if (!sessionNamedRef.current && providerRef.current) {
+      const userMsg = messages.find((m) => m.role === 'user')
+      const assistantMsg = messages.find((m) => m.role === 'assistant')
+      if (userMsg && assistantMsg) {
+        sessionNamedRef.current = true
+        const sid = currentSessionId
+        void nameSession(providerRef.current, userMsg.content, assistantMsg.content, handleEvent)
+          .then((name) => {
+            sessionNameRef.current = name
+            setSessionName(name)
+            void renameSession(sid, name).then(() => setHistoryRefreshKey((k) => k + 1))
+          })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy])
 
   const loadLocal = async (modelOverride?: string) => {
     const model = modelOverride ?? localModel ?? ''

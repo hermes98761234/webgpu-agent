@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { nameSession } from './nameSession'
 import type { Provider } from '../types'
 
@@ -45,5 +45,27 @@ describe('nameSession', () => {
     }
     const name = await nameSession(provider, 'fallback text', 'ok')
     expect(name).toBe('fallback text')
+  })
+
+  it('emits llm_request and llm_response events via onEvent', async () => {
+    const onEvent = vi.fn()
+    const name = await nameSession(fakeProvider('Test Name'), 'hello', 'hi', onEvent)
+    expect(name).toBe('Test Name')
+    expect(onEvent).toHaveBeenCalledTimes(2)
+    expect(onEvent.mock.calls[0][0]).toMatchObject({ type: 'llm_request', messages: [{ role: 'user', content: expect.stringContaining('Name this conversation') }] })
+    expect(onEvent.mock.calls[1][0]).toMatchObject({ type: 'llm_response', content: 'Test Name' })
+  })
+
+  it('emits error event when provider throws', async () => {
+    const provider: Provider = {
+      supportsNativeTools: true,
+      async chat() { throw new Error('boom') },
+    }
+    const onEvent = vi.fn()
+    const name = await nameSession(provider, 'text', 'ok', onEvent)
+    expect(name).toBe('text')
+    expect(onEvent).toHaveBeenCalledTimes(2)
+    expect(onEvent.mock.calls[0][0]).toMatchObject({ type: 'llm_request' })
+    expect(onEvent.mock.calls[1][0]).toMatchObject({ type: 'error', error: 'Error: boom' })
   })
 })
