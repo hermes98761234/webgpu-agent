@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
 jobs:
-  check:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,5 +15,35 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm test
+  ui-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --reporter=verbose src/ui/
+      - run: npx vitest run src/agent/nameSession.test.ts src/skills/defaults.test.ts src/ui/logStore.test.ts
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test, ui-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm run build
