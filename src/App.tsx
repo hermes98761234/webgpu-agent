@@ -28,10 +28,13 @@ import { FileManager } from './ui/FileManager'
 import { Terminal } from './ui/Terminal'
 import { LogPanel } from './ui/LogPanel'
 import { AboutPanel } from './ui/AboutPanel'
+import { GoalPanel } from './ui/GoalPanel'
+import { SchedulePanel } from './ui/SchedulePanel'
 import { pushLlmRequest, pushLlmResponse } from './ui/logStore'
 import { generateSessionId, listSessions, loadSession, saveSession, deleteSession, renameSession, type SessionMeta } from './store/sessions'
 import { nameSession } from './agent/nameSession'
 import { HistoryPanel } from './ui/HistoryPanel'
+import { startWorker, stopWorker } from './schedule/workerManager'
 
 const localProvider = new LocalProvider()
 
@@ -54,9 +57,11 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'ls', description: 'List files in current directory', icon: '📁' },
   { name: 'agent', description: 'Spawn a sub-agent with a task', icon: '🤖' },
   { name: 'files', description: 'Browse and edit files', icon: '📂' },
+  { name: 'goal', description: 'Manage goals with deadlines', icon: '🎯' },
+  { name: 'schedule', description: 'Manage scheduled tasks', icon: '📅' },
 ]
 
-type View = 'chat' | 'settings' | 'files' | 'terminal' | 'log' | 'about'
+type View = 'chat' | 'settings' | 'files' | 'terminal' | 'log' | 'about' | 'goal' | 'schedule'
 type PasswordGateMode = 'setup' | 'unlock' | null
 
 const trimContext = (msgs: ChatMessage[], max: number): ChatMessage[] => {
@@ -271,7 +276,11 @@ export default function App() {
           void loadLocal(model)
         }
       }
+      startWorker((schedule) => {
+        handleEvent({ type: 'status', text: `Schedule due: ${schedule.title}` })
+      })
     })()
+    return () => stopWorker()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -397,6 +406,16 @@ export default function App() {
     if (command === 'files') {
       setView('files')
       pushHash({ view: 'files' })
+      return
+    }
+    if (command === 'goal') {
+      setView('goal')
+      pushHash({ view: 'goal' })
+      return
+    }
+    if (command === 'schedule') {
+      setView('schedule')
+      pushHash({ view: 'schedule' })
       return
     }
     if (command === 'help') {
@@ -639,6 +658,12 @@ export default function App() {
           </div>
           {view === 'log' && <LogPanel />}
           {view === 'about' && <AboutPanel />}
+          {view === 'goal' && (
+            <GoalPanel onClose={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }} />
+          )}
+          {view === 'schedule' && (
+            <SchedulePanel onClose={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }} />
+          )}
           {view === 'chat' && (
             <>
               <MessageList items={display} />

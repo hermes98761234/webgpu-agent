@@ -1,11 +1,11 @@
-type RouteView = 'chat' | 'settings' | 'files' | 'terminal' | 'log' | 'about'
+type RouteView = 'chat' | 'settings' | 'files' | 'terminal' | 'log' | 'about' | 'goal' | 'schedule'
 
 interface ParsedRoute {
   view: RouteView
   sessionId?: string
 }
 
-const VALID_VIEWS: Set<string> = new Set(['chat', 'settings', 'files', 'terminal', 'log', 'about'])
+const VALID_VIEWS: Set<string> = new Set(['chat', 'settings', 'files', 'terminal', 'log', 'about', 'goal', 'schedule'])
 
 export function parseHash(): ParsedRoute {
   const hash = window.location.hash.slice(1)

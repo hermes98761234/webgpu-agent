@@ -257,4 +257,61 @@ browser's \`fetch\`. GitHub's API supports CORS for authenticated requests, so p
   "agent@local" if the user hasn't specified values.
 `,
   },
+  {
+    id: 'schedule',
+    name: 'Schedule',
+    description: 'Manage goals and scheduled tasks with reminders',
+    instructions: `# Schedule Skill
+
+You have access to goal and schedule management tools. Goals are single items with deadlines,
+schedules are recurring tasks that trigger at intervals.
+
+## Tools Reference
+
+| Tool | Purpose | Key Args |
+|------|---------|----------|
+| \`goal_create\` | Create a new goal | \`title\`, \`description?\`, \`deadline?\` |
+| \`goal_list\` | List all goals | — |
+| \`goal_complete\` | Mark goal as done | \`id\` |
+| \`goal_delete\` | Delete a goal | \`id\` |
+| \`schedule_create\` | Create a scheduled task | \`title\`, \`intervalMs\`, \`description?\` |
+| \`schedule_list\` | List all schedules | — |
+| \`schedule_pause\` | Pause/resume a schedule | \`id\` |
+| \`schedule_delete\` | Delete a schedule | \`id\` |
+
+## Interval Presets
+
+- 60000 (1 minute)
+- 300000 (5 minutes)
+- 900000 (15 minutes)
+- 3600000 (1 hour)
+- 21600000 (6 hours)
+- 86400000 (daily)
+- 604800000 (weekly)
+
+## Examples
+
+### Create a goal
+\`\`\`
+goal_create { "title": "Learn WebGPU", "deadline": 1751241600000 }
+\`\`\`
+
+### Create a daily schedule
+\`\`\`
+schedule_create { "title": "Daily standup", "intervalMs": 86400000 }
+\`\`\`
+
+### List active goals
+\`\`\`
+goal_list {}
+\`\`\`
+
+## Important Rules
+
+- Goals are single items; use schedules for recurring tasks
+- Data persists in the virtual filesystem
+- A Web Worker checks for due schedules when the tab is active
+- Use \`/goal\` or \`/schedule\` commands to open the management UI
+`,
+  },
 ]

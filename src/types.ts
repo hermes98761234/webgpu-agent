@@ -109,3 +109,24 @@ export type AgentEvent =
   | { type: 'status'; text: string }
   | { type: 'llm_request'; messages: ChatMessage[] }
   | { type: 'llm_response'; content: string }
+
+export interface Goal {
+  id: string
+  title: string
+  description?: string
+  deadline?: number
+  status: 'active' | 'completed' | 'cancelled'
+  createdAt: number
+  completedAt?: number
+}
+
+export interface ScheduleItem {
+  id: string
+  title: string
+  description?: string
+  intervalMs?: number
+  nextRun: number
+  lastRun?: number
+  status: 'active' | 'paused' | 'completed'
+  createdAt: number
+}
