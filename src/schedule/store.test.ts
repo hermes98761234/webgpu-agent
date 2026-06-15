@@ -114,4 +114,11 @@ describe('Schedule Store', () => {
     expect(updated?.lastRun).toBeGreaterThanOrEqual(before)
     expect(updated?.nextRun).toBeGreaterThan(before)
   })
+
+  it('handles concurrent goal creation without data loss', async () => {
+    const promises = Array.from({ length: 20 }, (_, i) => createGoal(`Goal ${i}`))
+    await Promise.all(promises)
+    const goals = await listGoals()
+    expect(goals.length).toBe(20)
+  })
 })

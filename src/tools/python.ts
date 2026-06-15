@@ -75,10 +75,15 @@ export const runPython: ToolDef = {
   source: 'builtin',
   async execute(args) {
     const code = String(args.code ?? '')
+    const TIMEOUT_MS = 15_000
     try {
       const py = await getDonkey()
       const wrappedCode = `sys.stdout.clear()\n__err = None\ntry:\n    exec(${JSON.stringify(code)})\nexcept Exception as e:\n    __err = f"{type(e).__name__}: {e}"`
-      await py.execute(wrappedCode)
+      const execPromise = py.execute(wrappedCode)
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Execution timed out after 15 seconds')), TIMEOUT_MS),
+      )
+      await Promise.race([execPromise, timeoutPromise])
       const output = await py.evaluate('sys.stdout.getvalue()')
       const error = await py.evaluate('__err')
       if (error) return `Error: ${error}`

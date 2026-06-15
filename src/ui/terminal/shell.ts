@@ -73,11 +73,13 @@ function parseRedirect(line: string): { cmdLine: string; outFile: string | null;
   return { cmdLine: line, outFile: null, append: false }
 }
 
-async function deleteRecursive(p: string): Promise<void> {
+async function deleteRecursive(p: string, depth = 0, visited = new Set<string>()): Promise<void> {
+  if (depth > 200) throw new Error(`Recursion limit exceeded at ${p}`)
+  if (!visited.add(p)) throw new Error(`Cycle detected at ${p}`)
   const stat = await pfs.stat(p)
   if (stat.isDirectory()) {
     const names = await pfs.readdir(p) as string[]
-    for (const n of names) await deleteRecursive(p === '/' ? `/${n}` : `${p}/${n}`)
+    for (const n of names) await deleteRecursive(p === '/' ? `/${n}` : `${p}/${n}`, depth + 1, visited)
     await pfs.rmdir(p)
   } else {
     await pfs.unlink(p)

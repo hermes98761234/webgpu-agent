@@ -33,4 +33,15 @@ describe('fs path resolution', () => {
     expect(out).toBe('Written: /home/user/notes.txt')
     expect(files.get('/home/user/notes.txt')).toBe('hi')
   })
+
+  it('normalizes .. segments in paths', async () => {
+    const out = await tool('fs_write').execute({ path: '~/.agent/../notes.txt', content: 'test' })
+    expect(out).toContain('/home/user/notes.txt')
+    expect(files.get('/home/user/notes.txt')).toBe('test')
+  })
+
+  it('handles multiple .. segments', async () => {
+    const out = await tool('fs_write').execute({ path: '~/.agent/memory/../../notes.txt', content: 'test2' })
+    expect(out).toContain('/home/user/notes.txt')
+  })
 })

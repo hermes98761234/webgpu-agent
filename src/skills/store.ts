@@ -76,12 +76,12 @@ export function upsertSkill(skills: Skill[], skill: Skill): Skill[] {
   void (async () => {
     if (skill.id && skill.id !== id) await removeSkillDir(skill.id)
     await writeSkillFiles(saved)
-  })()
+  })().catch(console.error)
   return next
 }
 
 export function deleteSkill(skills: Skill[], id: string): Skill[] {
-  void removeSkillDir(id)
+  void removeSkillDir(id).catch(console.error)
   return skills.filter((s) => s.id !== id)
 }
 

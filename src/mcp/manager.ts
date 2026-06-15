@@ -85,5 +85,5 @@ export async function persistMcpServers(servers: McpServerConfig[]): Promise<voi
 }
 
 export function saveMcpServers(servers: McpServerConfig[]): void {
-  void persistMcpServers(servers)
+  void persistMcpServers(servers).catch(console.error)
 }

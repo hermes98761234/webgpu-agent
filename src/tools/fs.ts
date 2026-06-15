@@ -12,7 +12,13 @@ function resolvePath(raw: unknown): string {
   if (path === '~') path = HOME
   else if (path.startsWith('~/')) path = `${HOME}/${path.slice(2)}`
   if (!path.startsWith('/')) path = `${HOME}/${path}`
-  return path.replace(/\/{2,}/g, '/')
+  const parts = path.split('/').filter(Boolean)
+  const resolved: string[] = []
+  for (const p of parts) {
+    if (p === '..') resolved.pop()
+    else if (p !== '.') resolved.push(p)
+  }
+  return '/' + resolved.join('/')
 }
 
 function isProtected(path: string): boolean {
@@ -132,12 +138,14 @@ const fsList: ToolDef = {
   },
 }
 
-async function deleteRecursive(path: string): Promise<void> {
+async function deleteRecursive(path: string, depth = 0, visited = new Set<string>()): Promise<void> {
+  if (depth > 200) throw new Error(`Recursion limit exceeded at ${path}`)
+  if (!visited.add(path)) throw new Error(`Cycle detected at ${path}`)
   const stat = await pfs.stat(path)
   if (stat.isDirectory()) {
     const names = await pfs.readdir(path)
     for (const name of names) {
-      await deleteRecursive(`${path}/${name}`)
+      await deleteRecursive(`${path}/${name}`, depth + 1, visited)
     }
     await pfs.rmdir(path)
   } else {

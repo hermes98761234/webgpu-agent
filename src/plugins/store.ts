@@ -45,7 +45,7 @@ export async function persistPlugins(plugins: Plugin[]): Promise<void> {
 }
 
 export function savePlugins(plugins: Plugin[]): void {
-  void persistPlugins(plugins)
+  void persistPlugins(plugins).catch(console.error)
 }
 
 export function upsertPlugin(plugins: Plugin[], plugin: Plugin): Plugin[] {

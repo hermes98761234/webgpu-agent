@@ -6,7 +6,12 @@ interface EncryptedBlob {
 
 function toBase64url(buf: Uint8Array | ArrayBuffer): string {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
-  return btoa(String.fromCharCode(...bytes))
+  let binary = ''
+  const chunkSize = 8192
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize) as unknown as number[])
+  }
+  return btoa(binary)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
@@ -35,8 +40,8 @@ async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promi
 }
 
 export async function encrypt(plaintext: string, password: string): Promise<string> {
-  const salt = fromBase64url(toBase64url(crypto.getRandomValues(new Uint8Array(16))))
-  const iv = fromBase64url(toBase64url(crypto.getRandomValues(new Uint8Array(12))))
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const iv = crypto.getRandomValues(new Uint8Array(12))
   const key = await deriveKey(password, salt)
   const enc = new TextEncoder()
   const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext))

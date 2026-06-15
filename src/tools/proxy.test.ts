@@ -90,6 +90,24 @@ describe('corsFetch', () => {
     vi.stubGlobal('fetch', mockFetch)
     await expect(corsFetch('https://blocked.com')).rejects.toThrow('All fallback proxies failed')
   })
+
+  it('tries fallback proxies on 5xx from direct fetch', async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('error', { status: 502 }))
+      .mockResolvedValueOnce(new Response('fallback ok'))
+    vi.stubGlobal('fetch', mockFetch)
+    const res = await corsFetch('https://example.com')
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    expect(await res.text()).toBe('fallback ok')
+  })
+
+  it('returns 4xx directly without trying fallbacks', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response('not found', { status: 404 }))
+    vi.stubGlobal('fetch', mockFetch)
+    const res = await corsFetch('https://example.com')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('getCorsProxy', () => {

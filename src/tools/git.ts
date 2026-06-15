@@ -32,8 +32,14 @@ async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
       statusCode: response.status,
       statusMessage: response.statusText,
     }
-  } catch {
-    return defaultHttp.request(req)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const isCorsOrNetwork = /cors|network|failed to fetch/i.test(msg)
+    if (isCorsOrNetwork) {
+      console.warn(`[git proxy] CORS/network error, falling back to defaultHttp:`, msg)
+      return defaultHttp.request(req)
+    }
+    throw e
   }
 }
 

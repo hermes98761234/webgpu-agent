@@ -110,6 +110,7 @@ export class ApiProvider implements Provider {
     let content = ''
     const partials = new Map<number, PartialToolCall>()
     for (;;) {
+      if (signal?.aborted) break
       const { done, value } = await reader.read()
       if (done) break
       buffer += decoder.decode(value, { stream: true })

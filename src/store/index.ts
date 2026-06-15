@@ -26,9 +26,14 @@ export async function setStorePassword(password: string): Promise<void> {
 }
 
 async function reencryptAll(oldPassword: string, newPassword: string): Promise<void> {
+  const keys: string[] = []
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i)
-    if (!k || !k.startsWith(PREFIX) || k === ENCRYPTION_KEY || k === PW_CHECK_KEY) continue
+    if (k && k.startsWith(PREFIX) && k !== ENCRYPTION_KEY && k !== PW_CHECK_KEY) {
+      keys.push(k)
+    }
+  }
+  for (const k of keys) {
     const v = localStorage.getItem(k)
     if (!v || !isEncryptedBlob(v)) continue
     try {

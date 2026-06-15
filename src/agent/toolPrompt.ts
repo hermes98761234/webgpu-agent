@@ -18,8 +18,6 @@ export function buildToolSystemPrompt(tools: ToolDef[]): string {
   ].join('\n')
 }
 
-let counter = 0
-
 function isToolCallShape(obj: unknown): obj is { tool: string; arguments: Record<string, unknown> } {
   if (typeof obj !== 'object' || obj === null) return false
   const rec = obj as Record<string, unknown>
@@ -30,6 +28,7 @@ function isToolCallShape(obj: unknown): obj is { tool: string; arguments: Record
 
 /** Extract every {"tool":…,"arguments":…} JSON object embedded anywhere in text. */
 export function parseToolCalls(text: string): ToolCall[] {
+  let counter = 0
   const calls: ToolCall[] = []
   let i = 0
   while (i < text.length) {

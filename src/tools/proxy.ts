@@ -31,7 +31,8 @@ export async function corsFetch(url: string, init?: RequestInit): Promise<Respon
   try {
     const res = await fetch(url, init)
     if (res.ok) return res
-    return res
+    if (res.status < 500) return res
+    // 5xx: fall through to try proxy fallbacks
   } catch {
     // Direct fetch failed (likely CORS), try fallback proxies
   }

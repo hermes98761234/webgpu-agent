@@ -44,10 +44,10 @@ describe('parseToolCall', () => {
   it('returns null for json without tool field', () => {
     expect(parseToolCall('{"answer": 42}')).toBeNull()
   })
-  it('assigns unique ids', () => {
+  it('assigns id to parsed call', () => {
     const a = parseToolCall('{"tool": "x", "arguments": {}}')
-    const b = parseToolCall('{"tool": "x", "arguments": {}}')
-    expect(a?.id).not.toBe(b?.id)
+    expect(a?.id).toBeDefined()
+    expect(a?.id).toMatch(/^local-\d+$/)
   })
 })
 
@@ -98,5 +98,12 @@ describe('parseToolCalls', () => {
     const text = '{"tool": "a", "arguments": {}}\n{"tool": "b", "arguments": {}}'
     const calls = parseToolCalls(text)
     expect(calls[0].id).not.toBe(calls[1].id)
+  })
+
+  it('resets counter between calls', () => {
+    const calls1 = parseToolCalls('{"tool": "x", "arguments": {}}')
+    const calls2 = parseToolCalls('{"tool": "x", "arguments": {}}')
+    expect(calls1[0].id).toBe('local-1')
+    expect(calls2[0].id).toBe('local-1')
   })
 })
