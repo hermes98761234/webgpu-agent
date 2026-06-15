@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: AgentSettings = {
   presencePenalty: 0,
   frequencyPenalty: 0,
   maxContextMessages: 40,
+  maxIterations: 50,
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
@@ -209,6 +210,8 @@ export default function App() {
             break
           }
         }
+      } else if (e.type === 'iteration_limit') {
+        next.push({ kind: 'iteration_limit', count: e.count })
       } else if (e.type === 'error') {
         next.push({ kind: 'error', text: e.error })
       } else if (e.type === 'llm_request') {
@@ -369,6 +372,27 @@ export default function App() {
       const { index: memIdx, files: memFiles } = await readAllMemories()
       const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles)
       const final = await runAgent(history, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
+      setMessages(final)
+    } catch (e) {
+      handleEvent({ type: 'error', error: String(e) })
+    } finally {
+      abortRef.current = null
+      setBusy(false)
+    }
+  }
+
+  const handleContinue = async () => {
+    if (busy || !providerRef.current) return
+    setBusy(true)
+    const provider = providerRef.current
+    const tools = buildTools()
+    toolsRef.current = tools
+    const abort = new AbortController()
+    abortRef.current = abort
+    try {
+      const { index: memIdx, files: memFiles } = await readAllMemories()
+      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles)
+      const final = await runAgent(messages, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
       setMessages(final)
     } catch (e) {
       handleEvent({ type: 'error', error: String(e) })
@@ -631,6 +655,7 @@ export default function App() {
               presencePenalty={agentSettings.presencePenalty}
               frequencyPenalty={agentSettings.frequencyPenalty}
               maxContextMessages={agentSettings.maxContextMessages}
+              maxIterations={agentSettings.maxIterations ?? 50}
               theme={theme}
               systemPrompt={systemPrompt}
               onTemperature={(v) => setAgentSettings({ ...agentSettings, temperature: v })}
@@ -639,6 +664,7 @@ export default function App() {
               onPresencePenalty={(v) => setAgentSettings({ ...agentSettings, presencePenalty: v })}
               onFrequencyPenalty={(v) => setAgentSettings({ ...agentSettings, frequencyPenalty: v })}
               onMaxContextMessages={(v) => setAgentSettings({ ...agentSettings, maxContextMessages: v })}
+              onMaxIterations={(v) => setAgentSettings({ ...agentSettings, maxIterations: v })}
               onTheme={setTheme}
               onSystemPrompt={setSystemPrompt}
               onChangePassword={handleChangePassword}
@@ -666,7 +692,7 @@ export default function App() {
           )}
           {view === 'chat' && (
             <>
-              <MessageList items={display} />
+              <MessageList items={display} onContinue={handleContinue} busy={busy} />
               <Composer
                 busy={busy}
                 onSend={send}

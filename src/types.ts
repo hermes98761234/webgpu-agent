@@ -33,6 +33,7 @@ export interface AgentSettings {
   presencePenalty: number
   frequencyPenalty: number
   maxContextMessages: number
+  maxIterations: number
 }
 
 export interface Provider {
@@ -106,6 +107,7 @@ export type AgentEvent =
   | { type: 'tool_start'; call: ToolCall }
   | { type: 'tool_result'; call: ToolCall; result: string; isError: boolean }
   | { type: 'error'; error: string }
+  | { type: 'iteration_limit'; count: number }
   | { type: 'status'; text: string }
   | { type: 'llm_request'; messages: ChatMessage[] }
   | { type: 'llm_response'; content: string }

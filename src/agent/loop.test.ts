@@ -77,13 +77,16 @@ describe('runAgent (prompt-based tools for local models)', () => {
 })
 
 describe('runAgent (limits and errors)', () => {
-  it('stops after 10 iterations', async () => {
+  it('stops after maxIterations and emits iteration_limit event', async () => {
     const provider = fakeProvider(true, [
       { content: '', toolCalls: [{ id: 'c', name: 'echo', arguments: { text: 'x' } }] },
     ])
     const events: AgentEvent[] = []
-    await runAgent([{ role: 'user', content: 'x' }], provider, [echoTool], '', (e) => events.push(e))
-    expect(events.some((e) => e.type === 'error' && e.error.includes('10'))).toBe(true)
+    await runAgent(
+      [{ role: 'user', content: 'x' }], provider, [echoTool], '', (e) => events.push(e),
+      undefined, { temperature: 0.7, topP: 1, maxTokens: 2048, presencePenalty: 0, frequencyPenalty: 0, maxContextMessages: 40, maxIterations: 10 },
+    )
+    expect(events.some((e) => e.type === 'iteration_limit' && e.count === 10)).toBe(true)
   })
 
   it('emits error event when provider throws', async () => {

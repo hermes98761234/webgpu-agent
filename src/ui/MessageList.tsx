@@ -5,6 +5,7 @@ export type DisplayItem =
   | { kind: 'assistant'; text: string; streaming?: boolean }
   | { kind: 'tool'; name: string; args: string; result?: string; isError?: boolean; startTime?: number; endTime?: number }
   | { kind: 'error'; text: string }
+  | { kind: 'iteration_limit'; count: number }
 
 const TYPING_STYLE = `
 @keyframes typingPulse {
@@ -140,7 +141,7 @@ function AssistantBody({ text, streaming }: AssistantBodyProps) {
   )
 }
 
-export function MessageList({ items }: { items: DisplayItem[] }) {
+export function MessageList({ items, onContinue, busy }: { items: DisplayItem[]; onContinue?: () => void; busy?: boolean }) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -218,6 +219,34 @@ export function MessageList({ items }: { items: DisplayItem[] }) {
               </summary>
               {item.result !== undefined && <pre>{item.result}</pre>}
             </details>
+          )
+        }
+
+        if (item.kind === 'iteration_limit') {
+          const isLast = i === items.length - 1
+          return (
+            <div key={i} className="msg msg-error" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span>⚠️ Stopped after {item.count} tool iterations</span>
+              {isLast && onContinue && (
+                <button
+                  onClick={onContinue}
+                  disabled={busy}
+                  style={{
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '4px 14px',
+                    fontSize: '13px',
+                    cursor: busy ? 'default' : 'pointer',
+                    opacity: busy ? 0.5 : 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  Continue
+                </button>
+              )}
+            </div>
           )
         }
 

@@ -1,8 +1,6 @@
 import type { AgentEvent, AgentSettings, ChatMessage, Provider, ToolDef } from '../types'
 import { buildToolSystemPrompt, parseToolCalls } from './toolPrompt'
 
-const MAX_ITERATIONS = 10
-
 export async function runAgent(
   history: ChatMessage[],
   provider: Provider,
@@ -12,6 +10,7 @@ export async function runAgent(
   signal?: AbortSignal,
   settings?: AgentSettings,
 ): Promise<ChatMessage[]> {
+  const maxIterations = settings?.maxIterations ?? 50
   const messages: ChatMessage[] = [...history]
   const toolMap = new Map(tools.map((t) => [t.name, t]))
   let system = systemPrompt
@@ -21,7 +20,7 @@ export async function runAgent(
   const withSystem = (): ChatMessage[] =>
     system ? [{ role: 'system', content: system }, ...messages] : [...messages]
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
+  for (let i = 0; i < maxIterations; i++) {
     const outgoing = withSystem()
     onEvent({ type: 'llm_request', messages: outgoing })
     let result
@@ -75,6 +74,6 @@ export async function runAgent(
       }
     }
   }
-  onEvent({ type: 'error', error: `Stopped after ${MAX_ITERATIONS} tool iterations` })
+  onEvent({ type: 'iteration_limit', count: maxIterations })
   return messages
 }

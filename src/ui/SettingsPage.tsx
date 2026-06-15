@@ -9,6 +9,7 @@ interface SettingsPageProps {
   presencePenalty: number
   frequencyPenalty: number
   maxContextMessages: number
+  maxIterations: number
   theme: 'dark' | 'light'
   systemPrompt: string
   onTemperature: (v: number) => void
@@ -17,6 +18,7 @@ interface SettingsPageProps {
   onPresencePenalty: (v: number) => void
   onFrequencyPenalty: (v: number) => void
   onMaxContextMessages: (v: number) => void
+  onMaxIterations: (v: number) => void
   onTheme: (v: 'dark' | 'light') => void
   onSystemPrompt: (v: string) => void
   onChangePassword: () => void
@@ -27,9 +29,9 @@ interface SettingsPageProps {
 export function SettingsPage(props: SettingsPageProps) {
   const {
     onClose,
-    temperature, topP, maxTokens, presencePenalty, frequencyPenalty, maxContextMessages,
+    temperature, topP, maxTokens, presencePenalty, frequencyPenalty, maxContextMessages, maxIterations,
     theme, systemPrompt,
-    onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty, onMaxContextMessages,
+    onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty, onMaxContextMessages, onMaxIterations,
     onTheme, onSystemPrompt,
     onChangePassword, onRemoveAllData, onGetFullPrompt,
   } = props
@@ -255,6 +257,18 @@ export function SettingsPage(props: SettingsPageProps) {
               style={{ flex: 1 }}
             />
             <span style={sliderBadge}>{maxContextMessages}</span>
+          </div>
+
+          <div style={sliderRow}>
+            <span style={sliderLabel}>Max Tool Iterations</span>
+            <input
+              type="range"
+              min={5} max={200} step={5}
+              value={maxIterations}
+              onChange={(e) => onMaxIterations(parseInt(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={sliderBadge}>{maxIterations}</span>
           </div>
         </div>
 
