@@ -35,21 +35,27 @@ function buildProxyUrl(proxy: string, url: string): string {
     : proxy.replace(/\/+$/, '') + '/' + encodeURIComponent(url)
 }
 
-export async function corsFetch(url: string, init?: RequestInit): Promise<Response> {
+export async function corsFetch(
+  url: string,
+  init?: RequestInit,
+  opts?: { proxyFirst?: boolean }
+): Promise<Response> {
   const proxy = getCorsProxy()
 
   if (proxy) {
     return fetch(buildProxyUrl(proxy, url), init)
   }
 
-  try {
-    const res = await fetch(url, init)
-    if (res.ok) return res
-  } catch {
-    // Direct fetch failed (likely CORS), try fallback proxies
-  }
-
   const method = (init?.method || 'GET').toUpperCase()
+
+  if (!opts?.proxyFirst) {
+    try {
+      const res = await fetch(url, init)
+      if (res.ok) return res
+    } catch {
+      // Direct fetch failed (likely CORS), try fallback proxies
+    }
+  }
 
   for (const fallback of FALLBACK_PROXIES) {
     if (!fallback.supportsMethods.includes(method)) {
@@ -60,6 +66,16 @@ export async function corsFetch(url: string, init?: RequestInit): Promise<Respon
       if (res.ok) return res
     } catch {
       continue
+    }
+  }
+
+  if (opts?.proxyFirst) {
+    // All proxies failed, last resort: try direct
+    try {
+      const res = await fetch(url, init)
+      if (res.ok) return res
+    } catch {
+      // Direct also failed
     }
   }
 
