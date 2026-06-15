@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { corsFetch, getCorsProxy, setCorsProxy } from './proxy'
+import { corsFetch, getCorsProxy, setCorsProxy, getSupportedMethods, isMethodSupported } from './proxy'
 
 describe('corsFetch', () => {
   beforeEach(() => {
@@ -139,5 +139,36 @@ describe('setCorsProxy', () => {
     setCorsProxy('https://old.com/?url={url}')
     setCorsProxy('https://new.com/?url={url}')
     expect(getCorsProxy()).toBe('https://new.com/?url={url}')
+  })
+})
+
+describe('getSupportedMethods', () => {
+  it('returns array of supported HTTP methods', () => {
+    const methods = getSupportedMethods()
+    expect(methods).toContain('GET')
+    expect(methods).toContain('POST')
+    expect(methods).toContain('PUT')
+    expect(methods).toContain('DELETE')
+    expect(methods).toContain('PATCH')
+  })
+})
+
+describe('isMethodSupported', () => {
+  it('returns true for supported methods', () => {
+    expect(isMethodSupported('GET')).toBe(true)
+    expect(isMethodSupported('POST')).toBe(true)
+    expect(isMethodSupported('PUT')).toBe(true)
+    expect(isMethodSupported('DELETE')).toBe(true)
+    expect(isMethodSupported('PATCH')).toBe(true)
+  })
+
+  it('returns false for unsupported methods', () => {
+    expect(isMethodSupported('OPTIONS')).toBe(false)
+    expect(isMethodSupported('HEAD')).toBe(false)
+  })
+
+  it('is case insensitive', () => {
+    expect(isMethodSupported('get')).toBe(true)
+    expect(isMethodSupported('post')).toBe(true)
   })
 })

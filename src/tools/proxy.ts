@@ -1,11 +1,25 @@
 const PROXY_KEY = 'webgpu-agent.corsProxy'
 
 const FALLBACK_PROXIES = [
-  { url: 'https://api.allorigins.win/raw?url={url}', name: 'allorigins' },
-  { url: 'https://cors.x2u.in/?url={url}', name: 'x2u' },
-  { url: 'https://cors.io/?url={url}', name: 'cors.io' },
-  { url: 'https://cors-anywhere.com/?url={url}', name: 'cors-anywhere' },
+  { url: 'https://cors.io/?url={url}', name: 'cors.io', supportsMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] },
+  { url: 'https://cors.x2u.in/?url={url}', name: 'x2u', supportsMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] },
+  { url: 'https://api.allorigins.win/raw?url={url}', name: 'allorigins', supportsMethods: ['GET'] },
+  { url: 'https://cors-anywhere.com/?url={url}', name: 'cors-anywhere', supportsMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] },
 ]
+
+export function getSupportedMethods(): string[] {
+  const methods = new Set<string>()
+  for (const proxy of FALLBACK_PROXIES) {
+    for (const method of proxy.supportsMethods) {
+      methods.add(method)
+    }
+  }
+  return Array.from(methods)
+}
+
+export function isMethodSupported(method: string): boolean {
+  return FALLBACK_PROXIES.some(proxy => proxy.supportsMethods.includes(method.toUpperCase()))
+}
 
 export function getCorsProxy(): string {
   try { return localStorage.getItem(PROXY_KEY) || '' } catch { return '' }
@@ -37,7 +51,12 @@ export async function corsFetch(url: string, init?: RequestInit): Promise<Respon
     // Direct fetch failed (likely CORS), try fallback proxies
   }
 
+  const method = (init?.method || 'GET').toUpperCase()
+
   for (const fallback of FALLBACK_PROXIES) {
+    if (!fallback.supportsMethods.includes(method)) {
+      continue
+    }
     try {
       const res = await fetch(buildProxyUrl(fallback.url, url), init)
       if (res.ok) return res

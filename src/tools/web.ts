@@ -36,6 +36,42 @@ Wind: ${windKmph} km/h ${windDir}`
   },
 }
 
+async function searchAlternative(query: string): Promise<string> {
+  try {
+    // Use DuckDuckGo's Instant Answer API as fallback
+    const apiRes = await corsFetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json`
+    )
+    
+    if (apiRes.ok) {
+      const data = await apiRes.json()
+      const results: string[] = []
+      
+      if (data.Abstract) {
+        results.push(`Summary: ${data.Abstract}`)
+      }
+      
+      if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+        for (let i = 0; i < Math.min(5, data.RelatedTopics.length); i++) {
+          const topic = data.RelatedTopics[i]
+          if (topic.Text) {
+            results.push(`${i + 1}. ${topic.Text}`)
+          }
+        }
+      }
+      
+      if (results.length > 0) {
+        return results.join('\n\n')
+      }
+    }
+    
+    // If API also fails, return helpful message
+    return `Search temporarily unavailable. Please try again later or configure a custom CORS proxy in Settings.`
+  } catch {
+    return `Search temporarily unavailable. Please try again later or configure a custom CORS proxy in Settings.`
+  }
+}
+
 const webSearch: ToolDef = {
   name: 'web_search',
   description: 'Search the web via DuckDuckGo and return top 5 results.',
@@ -48,12 +84,28 @@ const webSearch: ToolDef = {
   async execute(args) {
     const query = String(args.query)
     try {
+      // Try DuckDuckGo HTML endpoint first
       const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
       const res = await corsFetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        },
       })
-      if (!res.ok) return `Error: HTTP ${res.status}`
+      
+      if (!res.ok) {
+        // If DuckDuckGo fails, try alternative approach
+        return await searchAlternative(query)
+      }
+      
       const html = await res.text()
+      
+      // Check for CAPTCHA or bot detection
+      if (html.includes('anomaly-modal') || html.includes('challenge-form')) {
+        return await searchAlternative(query)
+      }
+      
       const parser = new DOMParser()
       const doc = parser.parseFromString(html, 'text/html')
       const results: string[] = []
