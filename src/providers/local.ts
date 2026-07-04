@@ -4,6 +4,11 @@ import type { AgentSettings, ChatMessage, ChatResult, Provider, ToolDef } from '
 
 // Preferred models shown at top of picker — fast, capable, well-tested
 const PREFERRED_MODELS = [
+  'Qwen3.5-9B-q4f16_1-MLC',
+  'Qwen3.5-4B-q4f16_1-MLC',
+  'Qwen3.5-2B-q4f16_1-MLC',
+  'Qwen3.5-0.8B-q4f16_1-MLC',
+  'Hermes-3-Llama-3.1-8B-q4f16_1-MLC',
   'Qwen3-1.7B-q4f16_1-MLC',
   'Qwen3-4B-q4f16_1-MLC',
   'Qwen3-8B-q4f16_1-MLC',

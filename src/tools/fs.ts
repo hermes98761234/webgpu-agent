@@ -140,7 +140,8 @@ const fsList: ToolDef = {
 
 async function deleteRecursive(path: string, depth = 0, visited = new Set<string>()): Promise<void> {
   if (depth > 200) throw new Error(`Recursion limit exceeded at ${path}`)
-  if (!visited.add(path)) throw new Error(`Cycle detected at ${path}`)
+  if (visited.has(path)) throw new Error(`Cycle detected at ${path}`)
+  visited.add(path)
   const stat = await pfs.stat(path)
   if (stat.isDirectory()) {
     const names = await pfs.readdir(path)

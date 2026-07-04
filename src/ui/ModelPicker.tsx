@@ -98,7 +98,14 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
               value={api.kind}
               onChange={(e) => {
                 const kind = e.target.value as ApiConfig['kind']
-                setApi({ ...api, kind, baseUrl: API_PRESETS[kind].baseUrl || api.baseUrl })
+                // Keep a hand-typed model; replace it if empty or it was just the old preset's suggestion
+                const wasSuggestion = !api.model || API_PRESETS[api.kind].models.includes(api.model)
+                setApi({
+                  ...api,
+                  kind,
+                  baseUrl: API_PRESETS[kind].baseUrl || api.baseUrl,
+                  model: wasSuggestion ? (API_PRESETS[kind].models[0] ?? api.model) : api.model,
+                })
               }}
               disabled={busy}
             >
@@ -108,11 +115,17 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
             </select>
             <input
               type="text"
-              placeholder="model id, e.g. gpt-4o-mini"
+              list="api-model-suggestions"
+              placeholder="model id, e.g. claude-opus-4-8"
               value={api.model}
               onChange={(e) => setApi({ ...api, model: e.target.value })}
               disabled={busy}
             />
+            <datalist id="api-model-suggestions">
+              {API_PRESETS[api.kind].models.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
           </div>
           <div className="row">
             <input

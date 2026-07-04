@@ -1,9 +1,44 @@
 import type { AgentSettings, ApiConfig, ChatMessage, ChatResult, Provider, ToolCall, ToolDef } from '../types'
 
-export const API_PRESETS: Record<ApiConfig['kind'], { label: string; baseUrl: string }> = {
-  openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
-  openrouter: { label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1' },
-  custom: { label: 'Custom (OpenAI-compatible)', baseUrl: '' },
+// All endpoints are OpenAI-compatible /chat/completions and allow browser CORS.
+// `models` are typed suggestions (datalist), not a hard list — any id works.
+export const API_PRESETS: Record<ApiConfig['kind'], { label: string; baseUrl: string; models: string[] }> = {
+  openai: {
+    label: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    models: ['gpt-5.5', 'gpt-5', 'gpt-5-mini', 'gpt-4o-mini'],
+  },
+  anthropic: {
+    label: 'Anthropic',
+    baseUrl: 'https://api.anthropic.com/v1',
+    models: ['claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'],
+  },
+  google: {
+    label: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    models: ['gemini-3.1-pro', 'gemini-3.1-flash', 'gemini-2.5-flash'],
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: ['anthropic/claude-opus-4.8', 'openai/gpt-5.5', 'deepseek/deepseek-v4', 'moonshotai/kimi-k2.6', 'x-ai/grok-4.3'],
+  },
+  groq: {
+    label: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    models: ['llama-3.3-70b-versatile', 'qwen/qwen3-32b'],
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+  },
+  mistral: {
+    label: 'Mistral',
+    baseUrl: 'https://api.mistral.ai/v1',
+    models: ['mistral-large-latest', 'mistral-small-latest'],
+  },
+  custom: { label: 'Custom (OpenAI-compatible)', baseUrl: '', models: [] },
 }
 
 export function parseSseLines(buffer: string): { events: string[]; rest: string } {
@@ -59,12 +94,18 @@ export class ApiProvider implements Provider {
   }
 
   extraHeaders(): Record<string, string> {
-    if (this.#config.kind !== 'openrouter') return {}
-    return {
-      'HTTP-Referer': location.origin,
-      'X-OpenRouter-Title': 'WebGPU Agent',
-      'X-OpenRouter-Categories': 'personal-agent',
+    if (this.#config.kind === 'openrouter') {
+      return {
+        'HTTP-Referer': location.origin,
+        'X-OpenRouter-Title': 'WebGPU Agent',
+        'X-OpenRouter-Categories': 'personal-agent',
+      }
     }
+    if (this.#config.kind === 'anthropic') {
+      // Required for Anthropic to accept requests directly from a browser
+      return { 'anthropic-dangerous-direct-browser-access': 'true' }
+    }
+    return {}
   }
 
   async chat(

@@ -49,7 +49,7 @@ export interface Provider {
 }
 
 export interface ApiConfig {
-  kind: 'openai' | 'openrouter' | 'custom'
+  kind: 'openai' | 'anthropic' | 'google' | 'openrouter' | 'groq' | 'deepseek' | 'mistral' | 'custom'
   baseUrl: string
   apiKey: string
   model: string

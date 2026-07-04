@@ -75,7 +75,8 @@ function parseRedirect(line: string): { cmdLine: string; outFile: string | null;
 
 async function deleteRecursive(p: string, depth = 0, visited = new Set<string>()): Promise<void> {
   if (depth > 200) throw new Error(`Recursion limit exceeded at ${p}`)
-  if (!visited.add(p)) throw new Error(`Cycle detected at ${p}`)
+  if (visited.has(p)) throw new Error(`Cycle detected at ${p}`)
+  visited.add(p)
   const stat = await pfs.stat(p)
   if (stat.isDirectory()) {
     const names = await pfs.readdir(p) as string[]

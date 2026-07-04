@@ -238,7 +238,13 @@ export default function App() {
           .then((name) => {
             sessionNameRef.current = name
             setSessionName(name)
-            void renameSession(sid, name).then(() => setHistoryRefreshKey((k) => k + 1))
+            void renameSession(sid, name)
+              .then(() => setHistoryRefreshKey((k) => k + 1))
+              .catch((e) => console.error('Session rename failed:', e))
+          })
+          .catch((e) => {
+            sessionNamedRef.current = false // retry on next idle
+            console.error('Session naming failed:', e)
           })
       }
     }
@@ -282,7 +288,10 @@ export default function App() {
       startWorker((schedule) => {
         handleEvent({ type: 'status', text: `Schedule due: ${schedule.title}` })
       })
-    })()
+    })().catch((e) => {
+      console.error('Agent home init failed:', e)
+      handleEvent({ type: 'error', error: `Startup init failed: ${String(e)}` })
+    })
     return () => stopWorker()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
