@@ -122,6 +122,11 @@ export interface Goal {
   completedAt?: number
 }
 
+export interface TodoItem {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed'
+}
+
 export interface ScheduleItem {
   id: string
   title: string

@@ -15,7 +15,9 @@ import { buildAgentSystemPrompt, buildDebugPrompt } from './agent/context'
 import { makeMemoryTools, readAllMemories } from './memory/store'
 import { setStorePassword, verifyStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
 import { getMcpServersCached } from './mcp/manager'
-import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Plugin, Provider, Skill, SlashCommand, ToolDef } from './types'
+import type { AgentEvent, AgentSettings, ApiConfig, ChatMessage, Plugin, Provider, Skill, SlashCommand, ToolDef, TodoItem } from './types'
+import { makeTodoTool } from './tools/todo'
+import { TodoPanel } from './ui/TodoPanel'
 import { Composer } from './ui/Composer'
 import { MessageList, type DisplayItem } from './ui/MessageList'
 import { ModelPicker, type ProviderMode } from './ui/ModelPicker'
@@ -102,6 +104,7 @@ export default function App() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [display, setDisplay] = useState<DisplayItem[]>([])
+  const [todos, setTodos] = useState<TodoItem[]>([])
   const [busy, setBusy] = useState(false)
   const [loadState, setLoadState] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; text: string }>({
     status: 'idle',
@@ -146,7 +149,7 @@ export default function App() {
     const cleanDisplay = disp.map((item) =>
       item.kind === 'assistant' && item.streaming ? { ...item, streaming: false } : item
     )
-    await saveSession(meta, { messages: msgs, display: cleanDisplay })
+    await saveSession(meta, { messages: msgs, display: cleanDisplay, todos })
     setHistoryRefreshKey((k) => k + 1)
   }
 
@@ -160,6 +163,7 @@ export default function App() {
     const meta = sessions.find((s) => s.id === id)
     setMessages(data.messages)
     setDisplay(data.display)
+    setTodos(data.todos ?? [])
     setCurrentSessionId(id)
     sessionNameRef.current = meta?.name ?? 'Chat'
     setSessionName(meta?.name ?? 'Chat')
@@ -174,6 +178,7 @@ export default function App() {
     if (currentSessionId === id) {
       setMessages([])
       setDisplay([])
+      setTodos([])
       setCurrentSessionId(null)
       sessionNameRef.current = 'New chat'
       setSessionName('New chat')
@@ -348,6 +353,7 @@ export default function App() {
       ...webTools,
       ...makeMemoryTools(),
       makeUseSkillTool(() => allSkills),
+      makeTodoTool(setTodos),
       spawnTool,
       ...mcpTools,
     ]
@@ -431,6 +437,7 @@ export default function App() {
     if (command === 'clear') {
       setMessages([])
       setDisplay([])
+      setTodos([])
       return
     }
     if (command === 'settings') {
@@ -559,6 +566,7 @@ export default function App() {
     indexedDB.deleteDatabase('webgpu-agent-fs')
     setMessages([])
     setDisplay([])
+    setTodos([])
     window.location.reload()
   }
 
@@ -629,6 +637,7 @@ export default function App() {
               }
               setMessages([])
               setDisplay([])
+              setTodos([])
               setCurrentSessionId(null)
               sessionNameRef.current = 'New chat'
               setSessionName('New chat')
@@ -704,6 +713,7 @@ export default function App() {
           {view === 'chat' && (
             <>
               <MessageList items={display} onContinue={handleContinue} busy={busy} />
+              <TodoPanel todos={todos} />
               <Composer
                 busy={busy}
                 onSend={send}

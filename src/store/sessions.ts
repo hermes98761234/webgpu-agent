@@ -1,7 +1,7 @@
 // Encryption is handled transparently by the store wrapper — setStoreItem encrypts
 // when a password is active, and all webgpu-agent.* keys are re-encrypted on change.
 import { getStoreItem, setStoreItem, removeStoreItem } from './index'
-import type { ChatMessage } from '../types'
+import type { ChatMessage, TodoItem } from '../types'
 import type { DisplayItem } from '../ui/MessageList'
 
 export interface SessionMeta {
@@ -15,6 +15,7 @@ export interface SessionMeta {
 export interface SessionData {
   messages: ChatMessage[]
   display: DisplayItem[]
+  todos?: TodoItem[]
 }
 
 const INDEX_KEY = 'webgpu-agent.session-index'
