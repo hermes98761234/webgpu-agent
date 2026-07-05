@@ -101,6 +101,17 @@ describe('corsFetch', () => {
     expect(await res.text()).toBe('fallback ok')
   })
 
+  it('returns the direct non-OK response when all fallbacks fail', async () => {
+    const mockFetch = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === 'https://example.com/missing') return new Response('not found', { status: 404 })
+      throw new TypeError('Failed to fetch')
+    })
+    vi.stubGlobal('fetch', mockFetch)
+    const res = await corsFetch('https://example.com/missing')
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe('not found')
+  })
+
   it('tries fallback proxies on 4xx from direct fetch', async () => {
     const mockFetch = vi.fn()
       .mockResolvedValueOnce(new Response('forbidden', { status: 403 }))

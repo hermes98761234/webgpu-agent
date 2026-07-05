@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { setStorePassword, getStoreItem, setStoreItem, hasPassword } from './index'
+import { setStorePassword, getStoreItem, setStoreItem, hasPassword, onEncryptionChange } from './index'
 
 describe('store reencryptAll', () => {
   beforeEach(async () => {
@@ -33,5 +33,15 @@ describe('store reencryptAll', () => {
       const val = await getStoreItem(`webgpu-agent.test${i}`)
       expect(val).toBe(`value${i}`)
     }
+  })
+
+  it('notifies encryption-change listeners on setStorePassword', async () => {
+    let calls = 0
+    const unsubscribe = onEncryptionChange(() => { calls++ })
+    await setStorePassword('pw')
+    expect(calls).toBe(1)
+    unsubscribe()
+    await setStorePassword('')
+    expect(calls).toBe(1)
   })
 })

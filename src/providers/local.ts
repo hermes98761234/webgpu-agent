@@ -22,7 +22,9 @@ const PREFERRED_MODELS = [
   'gemma-2-2b-it-q4f16_1-MLC',
   'gemma-2-9b-it-q4f16_1-MLC',
   'Mistral-7B-Instruct-v0.3-q4f16_1-MLC',
-  'deepseek-r1-distill-llama-8b-q4f16_1-MLC',
+  'Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC',
+  'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',
+  'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',
 ]
 
 export interface ModelInfo {
@@ -53,7 +55,7 @@ function modelFamily(id: string): string {
   if (lower.includes('llama')) return 'Llama'
   if (lower.includes('phi')) return 'Phi'
   if (lower.includes('gemma')) return 'Gemma'
-  if (lower.includes('mistral')) return 'Mistral'
+  if (lower.includes('mistral') || lower.includes('ministral')) return 'Mistral'
   if (lower.includes('deepseek')) return 'DeepSeek'
   if (lower.includes('smollm')) return 'SmolLM'
   if (lower.includes('stablelm')) return 'StableLM'

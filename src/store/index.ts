@@ -7,6 +7,14 @@ const PW_CHECK_KEY = 'webgpu-agent.pwcheck'
 let activePassword: string | null = null
 let isEncryptionEnabled = false
 
+const encryptionListeners = new Set<() => void>()
+
+/** Subscribe to encryption being enabled/unlocked/changed. Returns unsubscribe. */
+export function onEncryptionChange(fn: () => void): () => void {
+  encryptionListeners.add(fn)
+  return () => { encryptionListeners.delete(fn) }
+}
+
 export async function setStorePassword(password: string): Promise<void> {
   if (password) {
     const oldPassword = activePassword
@@ -23,6 +31,7 @@ export async function setStorePassword(password: string): Promise<void> {
     localStorage.removeItem(ENCRYPTION_KEY)
     localStorage.removeItem(PW_CHECK_KEY)
   }
+  encryptionListeners.forEach((fn) => fn())
 }
 
 async function reencryptAll(oldPassword: string, newPassword: string): Promise<void> {

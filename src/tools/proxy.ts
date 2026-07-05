@@ -47,11 +47,13 @@ export async function corsFetch(
   }
 
   const method = (init?.method || 'GET').toUpperCase()
+  let directRes: Response | null = null
 
   if (!opts?.proxyFirst) {
     try {
       const res = await fetch(url, init)
       if (res.ok) return res
+      directRes = res
     } catch {
       // Direct fetch failed (likely CORS), try fallback proxies
     }
@@ -78,6 +80,10 @@ export async function corsFetch(
       // Direct also failed
     }
   }
+
+  // Proxies couldn't do better — surface the server's real response (e.g. a 404)
+  // rather than a misleading CORS error.
+  if (directRes) return directRes
 
   throw new Error(`CORS blocked. All fallback proxies failed. Configure a custom proxy in Settings.`)
 }
