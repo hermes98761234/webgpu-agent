@@ -27,30 +27,34 @@ export function makeSpawnAgentTool(
     },
     source: 'builtin',
     async execute(args) {
-      const task = String(args.task)
-      const type = types.find((t) => t.name === String(args.agent_type ?? ''))
-      const systemPrompt = args.system_prompt ? String(args.system_prompt) : (type?.prompt ?? '')
-      const allTools = getTools()
-      const subTools = allTools.filter((t) => t.name !== 'spawn_agent')
-      let finalContent = ''
-      const messages = await runAgent(
-        [{ role: 'user', content: task }],
-        getProvider(),
-        subTools,
-        systemPrompt,
-        (event) => {
-          if (event.type === 'assistant_message') {
-            finalContent = event.message.content
-          }
-        },
-        // Inherit the parent agent's abort signal so Stop cancels sub-agents too.
-        getSignal?.(),
-      )
-      if (!finalContent) {
-        const last = [...messages].reverse().find((m) => m.role === 'assistant')
-        finalContent = last?.content ?? 'No response'
+      try {
+        const task = String(args.task)
+        const type = types.find((t) => t.name === String(args.agent_type ?? ''))
+        const systemPrompt = args.system_prompt ? String(args.system_prompt) : (type?.prompt ?? '')
+        const allTools = getTools()
+        const subTools = allTools.filter((t) => t.name !== 'spawn_agent')
+        let finalContent = ''
+        const messages = await runAgent(
+          [{ role: 'user', content: task }],
+          getProvider(),
+          subTools,
+          systemPrompt,
+          (event) => {
+            if (event.type === 'assistant_message') {
+              finalContent = event.message.content
+            }
+          },
+          // Inherit the parent agent's abort signal so Stop cancels sub-agents too.
+          getSignal?.(),
+        )
+        if (!finalContent) {
+          const last = [...messages].reverse().find((m) => m.role === 'assistant')
+          finalContent = last?.content ?? 'No response'
+        }
+        return finalContent
+      } catch (e) {
+        return `Error: ${String(e)}`
       }
-      return finalContent
     },
   }
 }
