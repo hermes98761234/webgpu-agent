@@ -98,3 +98,17 @@ describe('message actions', () => {
     expect(screen.queryByTitle('Revert to before this message')).toBeNull()
   })
 })
+
+describe('html preview buttons', () => {
+  it('shows a Preview button per ```html block and fires onPreview with its content', () => {
+    const onPreview = vi.fn()
+    const items: DisplayItem[] = [
+      { kind: 'assistant', text: 'Here:\n```html\n<h1>Hi</h1>\n```\nand\n```js\nx()\n```' },
+    ]
+    render(<MessageList items={items} onPreview={onPreview} />)
+    const btns = screen.getAllByText('▶ Preview HTML')
+    expect(btns).toHaveLength(1)
+    fireEvent.click(btns[0])
+    expect(onPreview).toHaveBeenCalledWith('<h1>Hi</h1>\n')
+  })
+})

@@ -45,6 +45,14 @@ function splitWebAgentUI(text: string): Array<{ type: 'text' | 'ui'; content: st
   return parts
 }
 
+function extractHtmlBlocks(text: string): string[] {
+  const out: string[] = []
+  const re = /```html\n([\s\S]*?)```/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) out.push(m[1])
+  return out
+}
+
 /** Simple regex-based markdown formatter */
 function formatMarkdown(text: string): string {
   // Extract <think> blocks into placeholders before escaping
@@ -114,9 +122,10 @@ function UiFrame({ html }: UiFrameProps) {
 interface AssistantBodyProps {
   text: string
   streaming?: boolean
+  onPreview?: (html: string) => void
 }
 
-function AssistantBody({ text, streaming }: AssistantBodyProps) {
+function AssistantBody({ text, streaming, onPreview }: AssistantBodyProps) {
   const parts = splitWebAgentUI(text)
   return (
     <>
@@ -137,6 +146,11 @@ function AssistantBody({ text, streaming }: AssistantBodyProps) {
           <span>⬤</span><span>⬤</span><span>⬤</span>
         </span>
       )}
+      {onPreview && !streaming && extractHtmlBlocks(text).map((html, i) => (
+        <button key={`pv${i}`} style={{ display: 'block', marginTop: 4 }} onClick={() => onPreview(html)}>
+          ▶ Preview HTML
+        </button>
+      ))}
     </>
   )
 }
@@ -148,6 +162,7 @@ export function MessageList({
   onRevert,
   onEditRerun,
   onQuote,
+  onPreview,
 }: {
   items: DisplayItem[]
   onContinue?: () => void
@@ -155,6 +170,7 @@ export function MessageList({
   onRevert?: (dispIndex: number) => void
   onEditRerun?: (dispIndex: number) => void
   onQuote?: (text: string) => void
+  onPreview?: (html: string) => void
 }) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [selQuote, setSelQuote] = useState<{ x: number; y: number; text: string } | null>(null)
@@ -208,7 +224,7 @@ export function MessageList({
             <div key={i} className="msg msg-assistant">
               <div className="msg-role">agent</div>
               <div className="msg-body">
-                <AssistantBody text={item.text} streaming={item.streaming} />
+                <AssistantBody text={item.text} streaming={item.streaming} onPreview={onPreview} />
               </div>
               {onQuote && !item.streaming && (
                 <div className="msg-actions" style={{ display: 'flex', gap: 8, marginTop: 4, opacity: 0.6, fontSize: '0.8em' }}>

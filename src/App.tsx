@@ -6,7 +6,8 @@ import { loadAgentTypes, seedDefaultAgents, type AgentType } from './agents'
 import { ApiProvider } from './providers/api'
 import { LocalProvider, presetModels, webgpuAvailable, deviceModels } from './providers/local'
 import { builtinTools } from './tools/builtin'
-import { fsTools } from './tools/fs'
+import { fsTools, resolvePath } from './tools/fs'
+import { makePreviewTool } from './tools/preview'
 import { searchTools } from './tools/search'
 import { gitTools } from './tools/git'
 import { webTools } from './tools/web'
@@ -21,6 +22,7 @@ import { makeTodoTool } from './tools/todo'
 import { TodoPanel } from './ui/TodoPanel'
 import { Composer } from './ui/Composer'
 import { MessageList, type DisplayItem } from './ui/MessageList'
+import { PreviewPane, type PreviewSource } from './ui/PreviewPane'
 import { ModelPicker, type ProviderMode } from './ui/ModelPicker'
 import { usePersistedState } from './ui/usePersistedState'
 import { SkillsPanel } from './ui/SkillsPanel'
@@ -66,6 +68,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'files', description: 'Browse and edit files', icon: '📂' },
   { name: 'goal', description: 'Manage goals with deadlines', icon: '🎯' },
   { name: 'schedule', description: 'Manage scheduled tasks', icon: '📅' },
+  { name: 'preview', description: 'Preview an HTML file from the virtual FS' },
 ]
 
 type View = 'chat' | 'settings' | 'files' | 'terminal' | 'log' | 'about' | 'goal' | 'schedule'
@@ -115,6 +118,7 @@ export default function App() {
     text: '',
   })
   const [mcpTools, setMcpTools] = useState<ToolDef[]>([])
+  const [preview, setPreview] = useState<PreviewSource | null>(null)
   const initialRoute = parseHash()
   const [view, setView] = useState<View>(initialRoute.view)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -364,6 +368,7 @@ export default function App() {
       ...makeMemoryTools(),
       makeUseSkillTool(() => allSkills),
       makeTodoTool(setTodos),
+      makePreviewTool(setPreview),
       spawnTool,
       ...mcpTools,
     ]
@@ -488,6 +493,10 @@ export default function App() {
     if (command === 'schedule') {
       setView('schedule')
       pushHash({ view: 'schedule' })
+      return
+    }
+    if (command === 'preview') {
+      if (args.trim()) setPreview({ title: args, path: resolvePath(args) })
       return
     }
     if (command === 'help') {
@@ -743,25 +752,29 @@ export default function App() {
             <SchedulePanel onClose={() => { setView('chat'); pushHash({ view: 'chat', sessionId: currentSessionId || undefined }) }} />
           )}
           {view === 'chat' && (
-            <>
-              <MessageList
-                items={display}
-                onContinue={handleContinue}
-                busy={busy}
-                onRevert={(i) => void handleRevert(i, false)}
-                onEditRerun={(i) => void handleRevert(i, true)}
-                onQuote={(text) => setDraft({ text: `> ${text.split('\n').join('\n> ')}\n`, nonce: Date.now(), mode: 'append' })}
-              />
-              <TodoPanel todos={todos} />
-              <Composer
-                busy={busy}
-                onSend={send}
-                onStop={() => abortRef.current?.abort()}
-                onCommand={handleCommand}
-                commands={allCommands}
-                draft={draft}
-              />
-            </>
+            <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <MessageList
+                  items={display}
+                  onContinue={handleContinue}
+                  busy={busy}
+                  onRevert={(i) => void handleRevert(i, false)}
+                  onEditRerun={(i) => void handleRevert(i, true)}
+                  onQuote={(text) => setDraft({ text: `> ${text.split('\n').join('\n> ')}\n`, nonce: Date.now(), mode: 'append' })}
+                  onPreview={(html) => setPreview({ title: 'Preview', html })}
+                />
+                <TodoPanel todos={todos} />
+                <Composer
+                  busy={busy}
+                  onSend={send}
+                  onStop={() => abortRef.current?.abort()}
+                  onCommand={handleCommand}
+                  commands={allCommands}
+                  draft={draft}
+                />
+              </div>
+              {preview && <PreviewPane source={preview} onClose={() => setPreview(null)} />}
+            </div>
           )}
         </section>
       </div>
