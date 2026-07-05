@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { parseHash, replaceHash, pushHash } from './router'
 import { runAgent } from './agent/loop'
 import { DEFAULT_SYSTEM_PROMPT, initAgentHome, writeAgentMd } from './agenthome'
+import { loadAgentTypes, seedDefaultAgents, type AgentType } from './agents'
 import { ApiProvider } from './providers/api'
 import { LocalProvider, presetModels, webgpuAvailable, deviceModels } from './providers/local'
 import { builtinTools } from './tools/builtin'
@@ -126,6 +127,7 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null)
   const providerRef = useRef<Provider | null>(null)
   const toolsRef = useRef<ToolDef[]>([])
+  const agentTypesRef = useRef<AgentType[]>([])
   const initStarted = useRef(false)
 
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -279,6 +281,8 @@ export default function App() {
     initStarted.current = true
     void (async () => {
       const home = await initAgentHome()
+      await seedDefaultAgents()
+      agentTypesRef.current = await loadAgentTypes()
       setSkills(home.skills)
       setPlugins(home.plugins)
       setSystemPromptState(home.systemPrompt)
@@ -344,7 +348,7 @@ export default function App() {
 
   const buildTools = (): ToolDef[] => {
     const allSkills = getAllSkills()
-    const spawnTool = makeSpawnAgentTool(getProvider, getTools, () => abortRef.current?.signal)
+    const spawnTool = makeSpawnAgentTool(getProvider, getTools, () => abortRef.current?.signal, () => agentTypesRef.current)
     return [
       ...builtinTools,
       ...fsTools,
