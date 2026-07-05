@@ -57,6 +57,8 @@ Replace `DEFAULT_SYSTEM_PROMPT` with an OpenCode-style prompt: short identity; e
 
 `buildToolSystemPrompt` (`src/agent/toolPrompt.ts`) gains short usage notes per tool where behavior isn't obvious from the schema.
 
+**Tool info in the system prompt (all models):** `buildAgentSystemPrompt` (`src/agent/context.ts`) always includes a compact tool overview — each tool's name and one-line description grouped by category (files, search, code execution, git, web, agent). For models without native tool calling this complements the full schema section from `buildToolSystemPrompt` (no duplication: the overview replaces any redundant listing); for native-tool-calling models it gives the prompt-level context real agents have about their own capabilities.
+
 ## Phase 3 — Conversation control
 
 ### Message identity
