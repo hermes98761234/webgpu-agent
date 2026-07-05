@@ -1,6 +1,7 @@
 import type { ToolDef } from '../types'
 import { corsFetch } from './proxy'
 import { runPython } from './python'
+import { runLua } from './lua'
 
 const getTime: ToolDef = {
   name: 'get_time',
@@ -79,4 +80,4 @@ const runJavascript: ToolDef = {
   },
 }
 
-export const builtinTools: ToolDef[] = [getTime, fetchUrl, runJavascript, runPython]
+export const builtinTools: ToolDef[] = [getTime, fetchUrl, runJavascript, runPython, runLua]
