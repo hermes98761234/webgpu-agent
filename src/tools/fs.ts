@@ -234,4 +234,45 @@ const fsMove: ToolDef = {
   },
 }
 
-export const fsTools: ToolDef[] = [fsRead, fsWrite, fsCreate, fsList, fsDelete, fsMkdir, fsMove]
+const fsEdit: ToolDef = {
+  name: 'fs_edit',
+  description:
+    'Replace an exact string in a file. old_string must match exactly (including whitespace) and be unique in the file unless replace_all is true. Prefer this over fs_write for modifying existing files.',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Absolute file path (~ and home-relative paths are resolved)' },
+      old_string: { type: 'string', description: 'Exact text to replace' },
+      new_string: { type: 'string', description: 'Replacement text' },
+      replace_all: { type: 'boolean', description: 'Replace every occurrence (default false)' },
+    },
+    required: ['path', 'old_string', 'new_string'],
+  },
+  source: 'builtin',
+  async execute(args) {
+    try {
+      const path = resolvePath(args.path)
+      if (isProtected(path)) return `Error: writing to system path '${path}' is not allowed`
+      const oldStr = String(args.old_string ?? '')
+      if (!oldStr) return 'Error: old_string must not be empty'
+      const newStr = String(args.new_string ?? '')
+      let data: string
+      try {
+        data = String(await pfs.readFile(path, { encoding: 'utf8' }))
+      } catch {
+        return `Error: file not found: ${path}`
+      }
+      const count = data.split(oldStr).length - 1
+      if (count === 0) return `Error: old_string not found in ${path}`
+      if (count > 1 && !args.replace_all)
+        return `Error: old_string occurs ${count} times in ${path}; provide a longer unique string or set replace_all`
+      const updated = args.replace_all ? data.split(oldStr).join(newStr) : data.replace(oldStr, newStr)
+      await pfs.writeFile(path, updated, 'utf8')
+      return `Edited ${path} (${args.replace_all ? count : 1} replacement${args.replace_all && count > 1 ? 's' : ''})`
+    } catch (e) {
+      return `Error: ${String(e)}`
+    }
+  },
+}
+
+export const fsTools: ToolDef[] = [fsRead, fsWrite, fsEdit, fsCreate, fsList, fsDelete, fsMkdir, fsMove]

@@ -45,3 +45,35 @@ describe('fs path resolution', () => {
     expect(out).toContain('/home/user/notes.txt')
   })
 })
+
+describe('fs_edit', () => {
+  const edit = fsTools.find((t) => t.name === 'fs_edit')!
+
+  it('replaces a unique exact string', async () => {
+    files.set('/home/user/a.txt', 'hello world')
+    const res = await edit.execute({ path: '/home/user/a.txt', old_string: 'world', new_string: 'there' })
+    expect(res).toContain('Edited')
+    expect(files.get('/home/user/a.txt')).toBe('hello there')
+  })
+
+  it('errors when old_string is missing from the file', async () => {
+    files.set('/home/user/a.txt', 'hello')
+    expect(await edit.execute({ path: '/home/user/a.txt', old_string: 'nope', new_string: 'x' })).toMatch(/^Error:.*not found/)
+  })
+
+  it('errors on ambiguous match without replace_all', async () => {
+    files.set('/home/user/a.txt', 'aa aa')
+    expect(await edit.execute({ path: '/home/user/a.txt', old_string: 'aa', new_string: 'b' })).toMatch(/^Error:.*2 times/)
+  })
+
+  it('replaces all occurrences with replace_all', async () => {
+    files.set('/home/user/a.txt', 'aa aa')
+    await edit.execute({ path: '/home/user/a.txt', old_string: 'aa', new_string: 'b', replace_all: true })
+    expect(files.get('/home/user/a.txt')).toBe('b b')
+  })
+
+  it('errors on missing file and empty old_string', async () => {
+    expect(await edit.execute({ path: '/home/user/none.txt', old_string: 'x', new_string: 'y' })).toMatch(/^Error:/)
+    expect(await edit.execute({ path: '/home/user/a.txt', old_string: '', new_string: 'y' })).toMatch(/^Error:/)
+  })
+})
