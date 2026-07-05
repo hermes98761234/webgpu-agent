@@ -56,16 +56,42 @@ export function buildMemorySection(index: string, files: MemoryFile[]): string {
   return parts.join('\n')
 }
 
+const TOOL_GROUPS: Array<{ label: string; match: RegExp }> = [
+  { label: 'Files', match: /^fs_/ },
+  { label: 'Search', match: /^(grep|glob)$/ },
+  { label: 'Git', match: /^git_/ },
+  { label: 'Code execution', match: /^run_/ },
+  { label: 'Web', match: /^(fetch_url|web_search|weather_lookup)$/ },
+  { label: 'Agent', match: /^(spawn_agent|use_skill|todo_write|preview$|memory_|get_time)/ },
+]
+
+/** Compact capability overview: tool name + first sentence, grouped by category. */
+export function buildToolOverviewSection(tools: ToolDef[]): string {
+  if (tools.length === 0) return ''
+  const grouped = new Map<string, string[]>()
+  for (const t of tools) {
+    const label = TOOL_GROUPS.find((g) => g.match.test(t.name))?.label ?? 'Other'
+    const firstSentence = t.description.split(/(?<=\.)\s/)[0]
+    if (!grouped.has(label)) grouped.set(label, [])
+    grouped.get(label)!.push(`- ${t.name}: ${firstSentence}`)
+  }
+  const parts = ['# Tools']
+  for (const [label, lines] of grouped) parts.push(`**${label}**\n${lines.join('\n')}`)
+  return parts.join('\n\n')
+}
+
 /** Compose the effective system prompt sent to the model. */
 export function buildAgentSystemPrompt(
   base: string,
   skills: Skill[],
   memoryIndex: string,
   memoryFiles: MemoryFile[] = [],
+  tools: ToolDef[] = [],
 ): string {
   return [
     buildTimeSection(),
     base.trim(),
+    buildToolOverviewSection(tools),
     buildSkillsSection(skills),
     buildMemorySection(memoryIndex, memoryFiles),
   ]

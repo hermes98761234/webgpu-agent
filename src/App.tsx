@@ -379,7 +379,7 @@ export default function App() {
     abortRef.current = abort
     try {
       const { index: memIdx, files: memFiles } = await readAllMemories()
-      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles)
+      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles, tools)
       const final = await runAgent(history, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
       setMessages(final)
     } catch (e) {
@@ -400,7 +400,7 @@ export default function App() {
     abortRef.current = abort
     try {
       const { index: memIdx, files: memFiles } = await readAllMemories()
-      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles)
+      const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles, tools)
       const final = await runAgent(messages, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
       setMessages(final)
     } catch (e) {

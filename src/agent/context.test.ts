@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { Skill } from '../types'
-import { buildAgentSystemPrompt, buildMemorySection, buildSkillsSection } from './context'
+import type { Skill, ToolDef } from '../types'
+import {
+  buildAgentSystemPrompt,
+  buildMemorySection,
+  buildSkillsSection,
+  buildToolOverviewSection,
+} from './context'
 
 const skills: Skill[] = [
   { id: 'haiku', name: 'haiku', description: 'Write haiku', instructions: 'Always 5-7-5.' },
@@ -54,5 +59,41 @@ describe('buildAgentSystemPrompt', () => {
     const out = buildAgentSystemPrompt('Base.', [], '')
     expect(out).not.toContain('# Skills')
     expect(out).toContain('# Memory')
+  })
+})
+
+const mkTool = (name: string, description: string): ToolDef => ({
+  name,
+  description,
+  parameters: { type: 'object', properties: {} },
+  source: 'builtin',
+  execute: async () => '',
+})
+
+describe('buildToolOverviewSection', () => {
+  it('groups tools by category with one line each', () => {
+    const s = buildToolOverviewSection([
+      mkTool('fs_read', 'Read a file from the virtual filesystem.'),
+      mkTool('grep', 'Search file contents with a regular expression. Returns matching lines.'),
+      mkTool('run_python', 'Run Python in a sandboxed worker. Use print() for output.'),
+      mkTool('mystery_tool', 'Does something.'),
+    ])
+    expect(s).toContain('# Tools')
+    expect(s).toContain('**Files**')
+    expect(s).toContain('- fs_read: Read a file from the virtual filesystem.')
+    expect(s).toContain('**Search**')
+    expect(s).toContain('**Code execution**')
+    expect(s).toContain('**Other**')
+    // only the first sentence of a description
+    expect(s).toContain('- grep: Search file contents with a regular expression.')
+    expect(s).not.toContain('Returns matching lines')
+  })
+
+  it('is empty for no tools and included in the system prompt', () => {
+    expect(buildToolOverviewSection([])).toBe('')
+    const withTools = buildAgentSystemPrompt('base', [], '', [], [mkTool('fs_read', 'Read.')])
+    expect(withTools).toContain('# Tools')
+    const without = buildAgentSystemPrompt('base', [], '', [])
+    expect(without).not.toContain('# Tools')
   })
 })
