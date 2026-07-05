@@ -12,7 +12,12 @@ export const runLua: ToolDef = {
   source: 'builtin',
   async execute(args) {
     const code = String(args.code ?? '')
-    const worker = new Worker(new URL('./luaWorker.ts', import.meta.url), { type: 'module' })
+    let worker: Worker
+    try {
+      worker = new Worker(new URL('./luaWorker.ts', import.meta.url), { type: 'module' })
+    } catch (e) {
+      return `Error: ${String(e)}`
+    }
     try {
       return await new Promise<string>((resolve) => {
         const timer = setTimeout(() => resolve('Error: timed out after 15s'), 15_000)
