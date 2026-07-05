@@ -6,6 +6,7 @@ import { ApiProvider } from './providers/api'
 import { LocalProvider, presetModels, webgpuAvailable, deviceModels } from './providers/local'
 import { builtinTools } from './tools/builtin'
 import { fsTools } from './tools/fs'
+import { searchTools } from './tools/search'
 import { gitTools } from './tools/git'
 import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
@@ -342,6 +343,7 @@ export default function App() {
     return [
       ...builtinTools,
       ...fsTools,
+      ...searchTools,
       ...gitTools,
       ...webTools,
       ...makeMemoryTools(),

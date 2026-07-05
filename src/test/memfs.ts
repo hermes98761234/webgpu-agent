@@ -50,9 +50,10 @@ export const pfs = {
   async rmdir(p: string): Promise<void> {
     dirs.delete(norm(p))
   },
-  async stat(p: string): Promise<object> {
+  async stat(p: string): Promise<{ type: 'file' | 'dir' }> {
     p = norm(p)
-    if (files.has(p) || dirs.has(p)) return {}
+    if (files.has(p)) return { type: 'file' }
+    if (dirs.has(p)) return { type: 'dir' }
     throw new Error(`ENOENT: ${p}`)
   },
 }
