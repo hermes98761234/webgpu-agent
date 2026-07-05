@@ -5,6 +5,8 @@
 ## Features
 
 - **Local models via WebGPU** — Run open-source LLMs directly in your browser using `@mlc-ai/web-llm`. Model weights are cached in-browser; nothing leaves your machine.
+
+  Want your own fine-tuned model in the picker? See [Bring Your Own Model](docs/guides/custom-model/README.md).
 - **External API mode** — Connect to any OpenAI-compatible API: OpenAI, OpenRouter, or a custom base URL.
 - **Agent tool loop** — Built-in tools: `get_time`, `fetch_url`, and `run_javascript` (sandboxed in a Web Worker).
 - **Persistent memory** — Save and recall agent memories across chats with `memory_save` and `memory_delete`. Memories live in the browser's virtual filesystem and survive page reloads.
