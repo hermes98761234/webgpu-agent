@@ -1,5 +1,5 @@
 import { CreateMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm'
-import type { MLCEngine } from '@mlc-ai/web-llm'
+import type { AppConfig, MLCEngine, ModelRecord } from '@mlc-ai/web-llm'
 import type { AgentSettings, ChatMessage, ChatResult, Provider, ToolDef } from '../types'
 
 // Preferred models shown at top of picker — fast, capable, well-tested
@@ -27,26 +27,50 @@ const PREFERRED_MODELS = [
   'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',
 ]
 
+// Custom fine-tuned models, listed ahead of WebLLM's prebuilt catalog.
+// Full pipeline: docs/guides/custom-model/
+export const CUSTOM_MODELS: ModelRecord[] = [
+  // Example — a LoRA-tuned Qwen3-0.6B reusing the prebuilt WASM runtime
+  // (see docs/guides/custom-model/06-add-to-app.md):
+  // {
+  //   model_id: 'Nova-Qwen3-0.6B-q4f16_1-MLC',
+  //   model: 'https://huggingface.co/<your-username>/Nova-Qwen3-0.6B-q4f16_1-MLC',
+  //   model_lib: prebuiltAppConfig.model_list.find((m) => m.model_id === 'Qwen3-0.6B-q4f16_1-MLC')!.model_lib,
+  //   vram_required_MB: 1400,
+  // },
+]
+
+export function appConfig(custom: ModelRecord[] = CUSTOM_MODELS): AppConfig {
+  return { ...prebuiltAppConfig, model_list: [...custom, ...prebuiltAppConfig.model_list] }
+}
+
 export interface ModelInfo {
   id: string
   family: string
   preferred: boolean
 }
 
-export function allModels(): ModelInfo[] {
+export function allModels(custom: ModelRecord[] = CUSTOM_MODELS): ModelInfo[] {
+  const customInfos: ModelInfo[] = custom.map((m) => ({
+    id: m.model_id,
+    family: modelFamily(m.model_id),
+    preferred: true,
+  }))
+  const customIds = new Set(customInfos.map((m) => m.id))
+
   const available = new Map(prebuiltAppConfig.model_list.map((m) => [m.model_id, m]))
   const preferredSet = new Set(PREFERRED_MODELS)
 
   const preferred: ModelInfo[] = PREFERRED_MODELS
-    .filter((id) => available.has(id))
+    .filter((id) => available.has(id) && !customIds.has(id))
     .map((id) => ({ id, family: modelFamily(id), preferred: true }))
 
   const preferredIds = new Set(preferred.map((m) => m.id))
   const rest: ModelInfo[] = prebuiltAppConfig.model_list
-    .filter((m) => !preferredIds.has(m.model_id) && !preferredSet.has(m.model_id))
+    .filter((m) => !customIds.has(m.model_id) && !preferredIds.has(m.model_id) && !preferredSet.has(m.model_id))
     .map((m) => ({ id: m.model_id, family: modelFamily(m.model_id), preferred: false }))
 
-  return [...preferred, ...rest]
+  return [...customInfos, ...preferred, ...rest]
 }
 
 function modelFamily(id: string): string {
@@ -84,7 +108,7 @@ export function isMobileDevice(): boolean {
 export function deviceModels(): ModelInfo[] {
   const models = allModels()
   if (!isMobileDevice()) return models
-  const byId = new Map(prebuiltAppConfig.model_list.map((m) => [m.model_id, m]))
+  const byId = new Map(appConfig().model_list.map((m) => [m.model_id, m]))
   return models.filter((m) => {
     const record = byId.get(resolveModelForDevice(m.id, false))
     if (!record) return false
@@ -132,7 +156,7 @@ async function probeGpu(): Promise<GpuCaps> {
 export function resolveModelForDevice(modelId: string, f16Trusted: boolean): string {
   if (f16Trusted || !modelId.includes('q4f16')) return modelId
   const fallback = modelId.replace(/q4f16/g, 'q4f32')
-  const exists = prebuiltAppConfig.model_list.some((m) => m.model_id === fallback)
+  const exists = appConfig().model_list.some((m) => m.model_id === fallback)
   return exists ? fallback : modelId
 }
 
@@ -157,6 +181,7 @@ export class LocalProvider implements Provider {
     this.engine = await CreateMLCEngine(
       modelId,
       {
+        appConfig: appConfig(),
         initProgressCallback: (p) => onProgress(p.text, p.progress),
       },
       {
