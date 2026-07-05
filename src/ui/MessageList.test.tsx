@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi, beforeAll } from 'vitest'
 import { MessageList } from './MessageList'
 import type { DisplayItem } from './MessageList'
@@ -67,5 +67,34 @@ describe('MessageList', () => {
     render(<MessageList items={items} />)
     expect(screen.getByText('do something')).toBeInTheDocument()
     expect(screen.getByText('Done!')).toBeInTheDocument()
+  })
+})
+
+describe('message actions', () => {
+  const items: DisplayItem[] = [
+    { kind: 'user', text: 'hello', cpId: 'cp1' },
+    { kind: 'assistant', text: 'world' },
+  ]
+
+  it('fires onRevert/onEditRerun with the display index of the user message', () => {
+    const onRevert = vi.fn()
+    const onEditRerun = vi.fn()
+    render(<MessageList items={items} onRevert={onRevert} onEditRerun={onEditRerun} />)
+    fireEvent.click(screen.getByTitle('Revert to before this message'))
+    expect(onRevert).toHaveBeenCalledWith(0)
+    fireEvent.click(screen.getByTitle('Edit & re-run'))
+    expect(onEditRerun).toHaveBeenCalledWith(0)
+  })
+
+  it('fires onQuote with the message text', () => {
+    const onQuote = vi.fn()
+    render(<MessageList items={items} onQuote={onQuote} />)
+    fireEvent.click(screen.getAllByTitle('Quote in reply')[1])
+    expect(onQuote).toHaveBeenCalledWith('world')
+  })
+
+  it('renders no action buttons when handlers are absent', () => {
+    render(<MessageList items={items} />)
+    expect(screen.queryByTitle('Revert to before this message')).toBeNull()
   })
 })

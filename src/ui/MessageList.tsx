@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 
 export type DisplayItem =
   | { kind: 'user'; text: string; cpId?: string }
@@ -141,15 +141,42 @@ function AssistantBody({ text, streaming }: AssistantBodyProps) {
   )
 }
 
-export function MessageList({ items, onContinue, busy }: { items: DisplayItem[]; onContinue?: () => void; busy?: boolean }) {
+export function MessageList({
+  items,
+  onContinue,
+  busy,
+  onRevert,
+  onEditRerun,
+  onQuote,
+}: {
+  items: DisplayItem[]
+  onContinue?: () => void
+  busy?: boolean
+  onRevert?: (dispIndex: number) => void
+  onEditRerun?: (dispIndex: number) => void
+  onQuote?: (text: string) => void
+}) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [selQuote, setSelQuote] = useState<{ x: number; y: number; text: string } | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [items])
 
+  const handleMouseUp = () => {
+    if (!onQuote) return
+    const sel = window.getSelection()
+    const text = sel?.toString().trim() ?? ''
+    if (!text || !sel || sel.rangeCount === 0) {
+      setSelQuote(null)
+      return
+    }
+    const rect = sel.getRangeAt(0).getBoundingClientRect()
+    setSelQuote({ x: rect.left + rect.width / 2, y: rect.top - 8, text })
+  }
+
   return (
-    <div className="message-list">
+    <div className="message-list" onMouseUp={handleMouseUp}>
       <style>{TYPING_STYLE}</style>
       {items.length === 0 && (
         <div className="empty-state">
@@ -165,6 +192,13 @@ export function MessageList({ items, onContinue, busy }: { items: DisplayItem[];
             <div key={i} className="msg msg-user">
               <div className="msg-role">you</div>
               <div className="msg-body">{item.text}</div>
+              {(onRevert || onEditRerun || onQuote) && (
+                <div className="msg-actions" style={{ display: 'flex', gap: 8, marginTop: 4, opacity: 0.6, fontSize: '0.8em' }}>
+                  {onRevert && <button title="Revert to before this message" onClick={() => onRevert(i)}>↩ revert</button>}
+                  {onEditRerun && <button title="Edit & re-run" onClick={() => onEditRerun(i)}>✎ re-run</button>}
+                  {onQuote && <button title="Quote in reply" onClick={() => onQuote(item.text)}>❝ quote</button>}
+                </div>
+              )}
             </div>
           )
         }
@@ -176,6 +210,11 @@ export function MessageList({ items, onContinue, busy }: { items: DisplayItem[];
               <div className="msg-body">
                 <AssistantBody text={item.text} streaming={item.streaming} />
               </div>
+              {onQuote && !item.streaming && (
+                <div className="msg-actions" style={{ display: 'flex', gap: 8, marginTop: 4, opacity: 0.6, fontSize: '0.8em' }}>
+                  <button title="Quote in reply" onClick={() => onQuote(item.text)}>❝ quote</button>
+                </div>
+              )}
             </div>
           )
         }
@@ -257,6 +296,18 @@ export function MessageList({ items, onContinue, busy }: { items: DisplayItem[];
         )
       })}
       <div ref={bottomRef} />
+      {selQuote && (
+        <button
+          style={{ position: 'fixed', left: selQuote.x, top: selQuote.y, transform: 'translate(-50%, -100%)', zIndex: 10 }}
+          onMouseDown={(e) => {
+            e.preventDefault()
+            onQuote?.(selQuote.text)
+            setSelQuote(null)
+          }}
+        >
+          ❝ quote
+        </button>
+      )}
     </div>
   )
 }

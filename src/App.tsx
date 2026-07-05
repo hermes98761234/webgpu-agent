@@ -432,7 +432,6 @@ export default function App() {
     }
   }
 
-  // Wired into MessageList's revert UI in Task 11.
   const handleRevert = async (dispIndex: number, prefill: boolean) => {
     if (busy) return
     const item = display[dispIndex]
@@ -448,7 +447,6 @@ export default function App() {
     if (currentSessionId) await saveCurrentSession(t.messages, t.display, currentSessionId)
     if (prefill) setDraft({ text: item.text, nonce: Date.now(), mode: 'replace' })
   }
-  void handleRevert // consumed by MessageList's revert UI in Task 11
 
   const allCommands: SlashCommand[] = [
     ...SLASH_COMMANDS,
@@ -746,7 +744,14 @@ export default function App() {
           )}
           {view === 'chat' && (
             <>
-              <MessageList items={display} onContinue={handleContinue} busy={busy} />
+              <MessageList
+                items={display}
+                onContinue={handleContinue}
+                busy={busy}
+                onRevert={(i) => void handleRevert(i, false)}
+                onEditRerun={(i) => void handleRevert(i, true)}
+                onQuote={(text) => setDraft({ text: `> ${text.split('\n').join('\n> ')}\n`, nonce: Date.now(), mode: 'append' })}
+              />
               <TodoPanel todos={todos} />
               <Composer
                 busy={busy}
