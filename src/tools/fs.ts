@@ -7,7 +7,7 @@ const PROTECTED_PATHS = [AGENT_MD, MCP_CONFIG]
 const PROTECTED_DIRS = [SKILLS_DIR, PLUGINS_DIR]
 
 /** Models often pass "~/x", relative paths, or padded strings; resolve to a clean absolute path. */
-function resolvePath(raw: unknown): string {
+export function resolvePath(raw: unknown): string {
   let path = String(raw ?? '').trim()
   if (path === '~') path = HOME
   else if (path.startsWith('~/')) path = `${HOME}/${path.slice(2)}`
