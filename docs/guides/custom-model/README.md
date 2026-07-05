@@ -16,9 +16,9 @@ pick base model ──► prepare dataset ──► LoRA fine-tune ──► mer
 
 1. [01 — Choose a base model](01-choose-base-model.md)
 2. [02 — Prepare a dataset](02-prepare-dataset.md)
-3. [03 — LoRA fine-tune and merge](03-lora-fine-tune.md)
+3. [03 — Fine-Tune with LoRA](03-finetune-lora.md)
 4. [04 — Convert to MLC format](04-convert-to-mlc.md)
-5. [05 — Upload to Hugging Face](05-upload-to-hf.md)
+5. [05 — Deploy the Weights to Hugging Face](05-deploy-weights.md)
 6. [06 — Register and select in the app](06-add-to-app.md)
 
 ## Prerequisites
