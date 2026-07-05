@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SlashCommand } from '../types'
 
 export type { SlashCommand }
@@ -9,6 +9,7 @@ interface ComposerProps {
   onStop: () => void
   onCommand?: (command: string, args: string) => void
   commands?: SlashCommand[]
+  draft?: { text: string; nonce: number; mode: 'replace' | 'append' }
 }
 
 const THINKING_STYLE = `
@@ -27,10 +28,18 @@ const THINKING_STYLE = `
 }
 `
 
-export function Composer({ busy, onSend, onStop, onCommand, commands = [] }: ComposerProps) {
+export function Composer({ busy, onSend, onStop, onCommand, commands = [], draft }: ComposerProps) {
   const [text, setText] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!draft) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setText((t) => (draft.mode === 'append' && t ? `${t}\n${draft.text}` : draft.text))
+    textareaRef.current?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft?.nonce])
 
   const filtered = text.startsWith('/')
     ? commands.filter((c) =>

@@ -3,6 +3,7 @@
 import { getStoreItem, setStoreItem, removeStoreItem } from './index'
 import type { ChatMessage, TodoItem } from '../types'
 import type { DisplayItem } from '../ui/MessageList'
+import type { Checkpoint } from '../checkpoints/journal'
 
 export interface SessionMeta {
   id: string
@@ -16,6 +17,7 @@ export interface SessionData {
   messages: ChatMessage[]
   display: DisplayItem[]
   todos?: TodoItem[]
+  checkpoints?: Checkpoint[]
 }
 
 const INDEX_KEY = 'webgpu-agent.session-index'

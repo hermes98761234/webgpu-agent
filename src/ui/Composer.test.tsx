@@ -61,4 +61,12 @@ describe('Composer', () => {
     await userEvent.type(textarea, '   {Enter}')
     expect(onSend).not.toHaveBeenCalled()
   })
+
+  it('applies an external draft: replace mode overwrites, append mode appends', () => {
+    const { rerender } = render(<Composer busy={false} onSend={() => {}} onStop={() => {}} draft={{ text: 'hello', nonce: 1, mode: 'replace' }} />)
+    const ta = screen.getByPlaceholderText(/Ask the agent/) as HTMLTextAreaElement
+    expect(ta.value).toBe('hello')
+    rerender(<Composer busy={false} onSend={() => {}} onStop={() => {}} draft={{ text: '> quoted', nonce: 2, mode: 'append' }} />)
+    expect(ta.value).toBe('hello\n> quoted')
+  })
 })

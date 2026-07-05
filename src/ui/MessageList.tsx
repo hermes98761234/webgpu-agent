@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react'
 
 export type DisplayItem =
-  | { kind: 'user'; text: string }
+  | { kind: 'user'; text: string; cpId?: string }
   | { kind: 'assistant'; text: string; streaming?: boolean }
   | { kind: 'tool'; name: string; args: string; result?: string; isError?: boolean; startTime?: number; endTime?: number }
   | { kind: 'error'; text: string }

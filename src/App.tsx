@@ -39,6 +39,8 @@ import { generateSessionId, listSessions, loadSession, saveSession, deleteSessio
 import { nameSession } from './agent/nameSession'
 import { HistoryPanel } from './ui/HistoryPanel'
 import { startWorker, stopWorker } from './schedule/workerManager'
+import { beginCheckpoint, endCheckpoint, getJournal, setJournal, installJournal, revertTo, countRevertFiles } from './checkpoints/journal'
+import { truncateForRevert } from './checkpoints/truncate'
 
 const localProvider = new LocalProvider()
 
@@ -106,6 +108,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [display, setDisplay] = useState<DisplayItem[]>([])
   const [todos, setTodos] = useState<TodoItem[]>([])
+  const [draft, setDraft] = useState<{ text: string; nonce: number; mode: 'replace' | 'append' } | undefined>()
   const [busy, setBusy] = useState(false)
   const [loadState, setLoadState] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; text: string }>({
     status: 'idle',
@@ -151,7 +154,7 @@ export default function App() {
     const cleanDisplay = disp.map((item) =>
       item.kind === 'assistant' && item.streaming ? { ...item, streaming: false } : item
     )
-    await saveSession(meta, { messages: msgs, display: cleanDisplay, todos })
+    await saveSession(meta, { messages: msgs, display: cleanDisplay, todos, checkpoints: getJournal() })
     setHistoryRefreshKey((k) => k + 1)
   }
 
@@ -166,6 +169,7 @@ export default function App() {
     setMessages(data.messages)
     setDisplay(data.display)
     setTodos(data.todos ?? [])
+    setJournal(data.checkpoints ?? [])
     setCurrentSessionId(id)
     sessionNameRef.current = meta?.name ?? 'Chat'
     setSessionName(meta?.name ?? 'Chat')
@@ -181,6 +185,7 @@ export default function App() {
       setMessages([])
       setDisplay([])
       setTodos([])
+      setJournal([])
       setCurrentSessionId(null)
       sessionNameRef.current = 'New chat'
       setSessionName('New chat')
@@ -279,6 +284,7 @@ export default function App() {
   useEffect(() => {
     if (initStarted.current) return
     initStarted.current = true
+    installJournal()
     void (async () => {
       const home = await initAgentHome()
       await seedDefaultAgents()
@@ -375,9 +381,11 @@ export default function App() {
       sessionNameRef.current = 'New chat'
     }
     const rawHistory: ChatMessage[] = [...messages, { role: 'user', content: text }]
+    const cpId = generateSessionId()
+    beginCheckpoint(cpId)
     const history = trimContext(rawHistory, agentSettings.maxContextMessages)
     setMessages(history)
-    setDisplay((d) => [...d, { kind: 'user', text }])
+    setDisplay((d) => [...d, { kind: 'user', text, cpId }])
     let provider: Provider
     if (mode === 'local') {
       provider = localProvider
@@ -397,6 +405,7 @@ export default function App() {
     } catch (e) {
       handleEvent({ type: 'error', error: String(e) })
     } finally {
+      endCheckpoint()
       abortRef.current = null
       setBusy(false)
     }
@@ -423,6 +432,24 @@ export default function App() {
     }
   }
 
+  // Wired into MessageList's revert UI in Task 11.
+  const handleRevert = async (dispIndex: number, prefill: boolean) => {
+    if (busy) return
+    const item = display[dispIndex]
+    if (item?.kind !== 'user') return
+    const fileCount = item.cpId ? countRevertFiles(item.cpId) : 0
+    const removed = display.length - dispIndex
+    const what = `Revert ${removed} message(s)${fileCount ? ` and restore ${fileCount} file change(s)` : ''}?`
+    if (!window.confirm(what)) return
+    if (item.cpId) await revertTo(item.cpId)
+    const t = truncateForRevert(messages, display, dispIndex)
+    setMessages(t.messages)
+    setDisplay(t.display)
+    if (currentSessionId) await saveCurrentSession(t.messages, t.display, currentSessionId)
+    if (prefill) setDraft({ text: item.text, nonce: Date.now(), mode: 'replace' })
+  }
+  void handleRevert // consumed by MessageList's revert UI in Task 11
+
   const allCommands: SlashCommand[] = [
     ...SLASH_COMMANDS,
     ...skills.map((s) => ({ name: `skill:${s.name}`, description: s.description, icon: '🎯' })),
@@ -442,6 +469,7 @@ export default function App() {
       setMessages([])
       setDisplay([])
       setTodos([])
+      setJournal([])
       return
     }
     if (command === 'settings') {
@@ -571,6 +599,7 @@ export default function App() {
     setMessages([])
     setDisplay([])
     setTodos([])
+    setJournal([])
     window.location.reload()
   }
 
@@ -642,6 +671,7 @@ export default function App() {
               setMessages([])
               setDisplay([])
               setTodos([])
+              setJournal([])
               setCurrentSessionId(null)
               sessionNameRef.current = 'New chat'
               setSessionName('New chat')
@@ -724,6 +754,7 @@ export default function App() {
                 onStop={() => abortRef.current?.abort()}
                 onCommand={handleCommand}
                 commands={allCommands}
+                draft={draft}
               />
             </>
           )}
