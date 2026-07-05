@@ -9,6 +9,7 @@ import {
   endCheckpoint,
   getJournal,
   installJournal,
+  resumeCheckpoint,
   revertTo,
   setJournal,
 } from './journal'
@@ -87,5 +88,28 @@ describe('checkpoint journal', () => {
     endCheckpoint()
     expect(getJournal()).toHaveLength(50)
     expect(getJournal()[0].id).toBe('cp10')
+  })
+
+  it('resumeCheckpoint reopens an existing checkpoint so later writes are journaled into it (Continue flow)', async () => {
+    files.set('/home/user/a.txt', 'v1')
+    beginCheckpoint('cp1')
+    await pfs.writeFile('/home/user/a.txt', 'v2') // simulates the initial turn's write
+    endCheckpoint()
+    // Simulate hitting the iteration limit, then Continue reopening the same checkpoint id.
+    await pfs.writeFile('/home/user/b.txt', 'should-not-be-recorded') // not journaled: no active checkpoint
+    resumeCheckpoint('cp1')
+    await pfs.writeFile('/home/user/c.txt', 'from-continue') // journaled into cp1
+    endCheckpoint()
+    expect(getJournal()).toHaveLength(1) // still one checkpoint, not a new one
+    await revertTo('cp1')
+    expect(files.get('/home/user/a.txt')).toBe('v1')
+    expect(files.has('/home/user/c.txt')).toBe(false) // write made during Continue got reverted
+    expect(files.get('/home/user/b.txt')).toBe('should-not-be-recorded') // untouched, as expected
+  })
+
+  it('resumeCheckpoint with an unknown id leaves no checkpoint active (no-op, matches drop-after-cap semantics)', async () => {
+    resumeCheckpoint('nope')
+    await pfs.writeFile('/home/user/d.txt', 'x')
+    expect(getJournal()).toHaveLength(0)
   })
 })

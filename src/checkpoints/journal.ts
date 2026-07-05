@@ -32,6 +32,17 @@ export function endCheckpoint(): void {
   active = null
 }
 
+/**
+ * Reopen an existing checkpoint (found by id) so further writes accumulate into it,
+ * rather than starting a new checkpoint entry. Used by "Continue" to keep writes made
+ * while resuming an agent run journaled under the same revert point as the turn that
+ * hit the iteration limit. No-ops (leaves `active` unset) if the id isn't in the journal,
+ * e.g. because it was trimmed by the MAX_CHECKPOINTS cap.
+ */
+export function resumeCheckpoint(id: string): void {
+  active = journal.find((c) => c.id === id) ?? null
+}
+
 function toB64(bytes: Uint8Array): string {
   let s = ''
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000))

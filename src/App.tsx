@@ -41,7 +41,7 @@ import { generateSessionId, listSessions, loadSession, saveSession, deleteSessio
 import { nameSession } from './agent/nameSession'
 import { HistoryPanel } from './ui/HistoryPanel'
 import { startWorker, stopWorker } from './schedule/workerManager'
-import { beginCheckpoint, endCheckpoint, getJournal, setJournal, installJournal, revertTo, countRevertFiles } from './checkpoints/journal'
+import { beginCheckpoint, endCheckpoint, getJournal, setJournal, installJournal, revertTo, countRevertFiles, resumeCheckpoint } from './checkpoints/journal'
 import { truncateForRevert } from './checkpoints/truncate'
 
 const localProvider = new LocalProvider()
@@ -145,7 +145,12 @@ export default function App() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const pendingSessionRef = useRef<string | null>(null)
 
-  const saveCurrentSession = async (msgs: ChatMessage[], disp: DisplayItem[], sid: string) => {
+  const saveCurrentSession = async (
+    msgs: ChatMessage[],
+    disp: DisplayItem[],
+    sid: string,
+    todosOverride?: TodoItem[],
+  ) => {
     if (!sid || msgs.length === 0) return
     const firstUser = msgs.find((m) => m.role === 'user')
     const meta: SessionMeta = {
@@ -158,7 +163,7 @@ export default function App() {
     const cleanDisplay = disp.map((item) =>
       item.kind === 'assistant' && item.streaming ? { ...item, streaming: false } : item
     )
-    await saveSession(meta, { messages: msgs, display: cleanDisplay, todos, checkpoints: getJournal() })
+    await saveSession(meta, { messages: msgs, display: cleanDisplay, todos: todosOverride ?? todos, checkpoints: getJournal() })
     setHistoryRefreshKey((k) => k + 1)
   }
 
@@ -424,6 +429,11 @@ export default function App() {
     toolsRef.current = tools
     const abort = new AbortController()
     abortRef.current = abort
+    // Reopen the checkpoint for the turn we're continuing so writes made during
+    // this run are journaled under the same revert point (not silently dropped).
+    const lastUser = [...display].reverse().find((d) => d.kind === 'user')
+    const cpId = lastUser?.cpId
+    if (cpId) resumeCheckpoint(cpId)
     try {
       const { index: memIdx, files: memFiles } = await readAllMemories()
       const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles, tools)
@@ -432,6 +442,7 @@ export default function App() {
     } catch (e) {
       handleEvent({ type: 'error', error: String(e) })
     } finally {
+      if (cpId) endCheckpoint()
       abortRef.current = null
       setBusy(false)
     }
@@ -449,7 +460,8 @@ export default function App() {
     const t = truncateForRevert(messages, display, dispIndex)
     setMessages(t.messages)
     setDisplay(t.display)
-    if (currentSessionId) await saveCurrentSession(t.messages, t.display, currentSessionId)
+    setTodos([])
+    if (currentSessionId) await saveCurrentSession(t.messages, t.display, currentSessionId, [])
     if (prefill) setDraft({ text: item.text, nonce: Date.now(), mode: 'replace' })
   }
 
