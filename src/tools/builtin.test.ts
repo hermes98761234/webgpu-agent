@@ -1,4 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../fs/setup', () => import('../test/memfs'))
+
+import { resetMemfs } from '../test/memfs'
 import { builtinTools } from './builtin'
 
 const byName = (name: string) => {
@@ -7,14 +11,18 @@ const byName = (name: string) => {
   return tool
 }
 
+beforeEach(() => {
+  resetMemfs()
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
 describe('builtinTools', () => {
-  it('exposes get_time, fetch_url, run_javascript, run_python, run_lua', () => {
+  it('exposes get_time, fetch_url, run_javascript, run_python, run_lua, run_sql', () => {
     expect(builtinTools.map((t) => t.name).sort()).toEqual([
-      'fetch_url', 'get_time', 'run_javascript', 'run_lua', 'run_python',
+      'fetch_url', 'get_time', 'run_javascript', 'run_lua', 'run_python', 'run_sql',
     ])
   })
 
