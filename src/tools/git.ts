@@ -1,49 +1,20 @@
 import git from 'isomorphic-git'
 import defaultHttp from 'isomorphic-git/http/web'
-import type { GitHttpRequest, GitHttpResponse, HttpClient } from 'isomorphic-git/http/web'
+import type { HttpClient } from 'isomorphic-git/http/web'
 import type { ToolDef } from '../types'
-import { corsFetch } from './proxy'
+import { getGitCorsProxy } from './proxy'
 import { fs } from '../fs/setup'
 
-async function proxyRequest(req: GitHttpRequest): Promise<GitHttpResponse> {
-  try {
-    let bodyInit: BodyInit | undefined
-    if (req.body) {
-      const chunks: Uint8Array[] = []
-      for await (const chunk of req.body) chunks.push(chunk)
-      const total = chunks.reduce((n, c) => n + c.length, 0)
-      const merged = new Uint8Array(total)
-      let offset = 0
-      for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length }
-      bodyInit = merged
-    }
-    const response = await corsFetch(req.url, {
-      method: req.method,
-      headers: req.headers as Record<string, string>,
-      body: bodyInit,
-    })
-    const buffer = new Uint8Array(await response.arrayBuffer())
-    async function* responseBody(): AsyncIterableIterator<Uint8Array> { yield buffer }
-    return {
-      url: req.url,
-      method: req.method,
-      headers: Object.fromEntries(response.headers.entries()),
-      body: responseBody(),
-      statusCode: response.status,
-      statusMessage: response.statusText,
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    const isCorsOrNetwork = /cors|network|failed to fetch/i.test(msg)
-    if (isCorsOrNetwork) {
-      console.warn(`[git proxy] CORS/network error, falling back to defaultHttp:`, msg)
-      return defaultHttp.request(req)
-    }
-    throw e
-  }
+// github.com sends no CORS headers on git endpoints, so browser git must
+// always go through a git-aware path-style proxy (generic {url}-template
+// proxies mangle smart-HTTP POST bodies).
+export const http: HttpClient = {
+  request: (req) =>
+    defaultHttp.request({
+      ...req,
+      url: `${getGitCorsProxy()}/${req.url.replace(/^https?:\/\//, '')}`,
+    }),
 }
-
-export const http: HttpClient = { request: proxyRequest }
 
 const gitInit: ToolDef = {
   name: 'git_init',

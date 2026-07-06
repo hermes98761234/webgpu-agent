@@ -25,6 +25,16 @@ export function getCorsProxy(): string {
   try { return localStorage.getItem(PROXY_KEY) || '' } catch { return '' }
 }
 
+// ponytail: shared demo proxy, rate-limited — self-host @isomorphic-git/cors-proxy if it throttles
+const GIT_PROXY_DEFAULT = 'https://cors.isomorphic-git.org'
+
+// Git smart-HTTP needs a path-style proxy (proxy/host/path); a custom
+// {url}-template proxy can't express that, so fall back to the default.
+export function getGitCorsProxy(): string {
+  const p = getCorsProxy()
+  return p && !p.includes('{url}') ? p.replace(/\/+$/, '') : GIT_PROXY_DEFAULT
+}
+
 export function setCorsProxy(proxy: string): void {
   try { localStorage.setItem(PROXY_KEY, proxy) } catch { /* ignore */ }
 }
