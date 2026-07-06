@@ -14,6 +14,7 @@ import { webTools } from './tools/web'
 import { makeSpawnAgentTool } from './tools/multiagent'
 import { makeUseSkillTool } from './skills/store'
 import { buildAgentSystemPrompt, buildDebugPrompt } from './agent/context'
+import { contextWindowFor, estimateHistoryTokens, estimateTokens, historyBudget, priceFor, trimToTokenBudget } from './agent/tokens'
 import { makeMemoryTools, readAllMemories } from './memory/store'
 import { setStorePassword, verifyStorePassword, detectEncryptionEnabled, hasPassword, clearAllStoreData } from './store/index'
 import { getMcpServersCached } from './mcp/manager'
@@ -53,6 +54,7 @@ const DEFAULT_SETTINGS: AgentSettings = {
   presencePenalty: 0,
   frequencyPenalty: 0,
   maxContextMessages: 40,
+  maxContextTokens: 0, // 0 = auto from model context window
   maxIterations: 50,
 }
 
@@ -62,6 +64,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'skills', description: 'Manage skills', icon: '🎯' },
   { name: 'mcp', description: 'Manage MCP servers', icon: '🔌' },
   { name: 'help', description: 'Show available commands and tools', icon: '❓' },
+  { name: 'usage', description: 'Show context size, token usage and cost', icon: '📊' },
   { name: 'git status', description: 'Show git repository status', icon: '🔀' },
   { name: 'ls', description: 'List files in current directory', icon: '📁' },
   { name: 'agent', description: 'Spawn a sub-agent with a task', icon: '🤖' },
@@ -208,6 +211,9 @@ export default function App() {
   const getProvider = (): Provider => providerRef.current!
   const getTools = (): ToolDef[] => toolsRef.current
 
+  // Cumulative estimated token usage since page load
+  const usageRef = useRef({ requests: 0, prompt: 0, completion: 0 })
+
   const handleEvent = (e: AgentEvent) => {
     setDisplay((d) => {
       const next = [...d]
@@ -237,8 +243,11 @@ export default function App() {
       } else if (e.type === 'error') {
         next.push({ kind: 'error', text: e.error })
       } else if (e.type === 'llm_request') {
+        usageRef.current.requests++
+        usageRef.current.prompt += estimateHistoryTokens(e.messages)
         pushLlmRequest(e.messages)
       } else if (e.type === 'llm_response') {
+        usageRef.current.completion += estimateTokens(e.content)
         pushLlmResponse(e.content)
       }
       return next
@@ -393,8 +402,7 @@ export default function App() {
     const rawHistory: ChatMessage[] = [...messages, { role: 'user', content: text }]
     const cpId = generateSessionId()
     beginCheckpoint(cpId)
-    const history = trimContext(rawHistory, agentSettings.maxContextMessages)
-    setMessages(history)
+    const countTrimmed = trimContext(rawHistory, agentSettings.maxContextMessages)
     setDisplay((d) => [...d, { kind: 'user', text, cpId }])
     let provider: Provider
     if (mode === 'local') {
@@ -410,6 +418,15 @@ export default function App() {
     try {
       const { index: memIdx, files: memFiles } = await readAllMemories()
       const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles, tools)
+      const budget = historyBudget(
+        agentSettings.maxContextTokens ?? 0,
+        mode === 'local' ? localModel : api.model,
+        mode === 'local',
+        estimateTokens(effectiveSystem),
+        agentSettings.maxTokens,
+      )
+      const history = trimToTokenBudget(countTrimmed, budget)
+      setMessages(history)
       const final = await runAgent(history, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
       setMessages(final)
     } catch (e) {
@@ -437,7 +454,15 @@ export default function App() {
     try {
       const { index: memIdx, files: memFiles } = await readAllMemories()
       const effectiveSystem = buildAgentSystemPrompt(systemPrompt, getAllSkills(), memIdx, memFiles, tools)
-      const final = await runAgent(messages, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
+      const budget = historyBudget(
+        agentSettings.maxContextTokens ?? 0,
+        mode === 'local' ? localModel : api.model,
+        mode === 'local',
+        estimateTokens(effectiveSystem),
+        agentSettings.maxTokens,
+      )
+      const history = trimToTokenBudget(messages, budget)
+      const final = await runAgent(history, provider, tools, effectiveSystem, handleEvent, abort.signal, agentSettings)
       setMessages(final)
     } catch (e) {
       handleEvent({ type: 'error', error: String(e) })
@@ -509,6 +534,49 @@ export default function App() {
     }
     if (command === 'preview') {
       if (args.trim()) setPreview({ title: args, path: resolvePath(args) })
+      return
+    }
+    if (command === 'usage') {
+      const isLocal = mode === 'local'
+      const modelName = (isLocal ? localModel : api.model) || '(no model selected)'
+      const window = (agentSettings.maxContextTokens ?? 0) > 0
+        ? agentSettings.maxContextTokens
+        : contextWindowFor(modelName, isLocal)
+      const ctx = estimateHistoryTokens(messages)
+      const pct = Math.min(100, Math.round((ctx / window) * 100))
+      const bar = '█'.repeat(Math.round(pct / 5)).padEnd(20, '░')
+      const u = usageRef.current
+      const price = isLocal ? [0, 0] as [number, number] : priceFor(modelName)
+      const cost = price ? (u.prompt / 1e6) * price[0] + (u.completion / 1e6) * price[1] : undefined
+      const status = isLocal
+        ? `Local WebGPU — model ${loadState.status === 'ready' ? 'loaded ✅' : loadState.status}`
+        : `API (${api.kind}) — ${api.baseUrl}${api.apiKey ? ' — key set ✅' : ' — ⚠️ no API key'}`
+      const plan = isLocal
+        ? 'Free — runs entirely on your GPU'
+        : api.minRequestIntervalSec
+          ? `Rate-limited: min ${api.minRequestIntervalSec}s between requests (free-tier throttle)`
+          : 'No rate limit configured'
+      const fmt = (n: number) => n.toLocaleString('en-US')
+      setDisplay((d) => [...d, {
+        kind: 'assistant',
+        text: [
+          '## Usage',
+          `**Model:** \`${modelName}\``,
+          `**Status:** ${status}`,
+          `**Plan / limits:** ${plan}`,
+          '',
+          '### Context',
+          `\`${bar}\` ${pct}%`,
+          `~${fmt(ctx)} / ${fmt(window)} tokens · ${messages.length} messages in history`,
+          `Auto-trim: keeps history under ${(agentSettings.maxContextTokens ?? 0) > 0 ? `${fmt(agentSettings.maxContextTokens)} tokens (manual)` : 'the model context window (auto)'} and ${agentSettings.maxContextMessages} messages`,
+          '',
+          '### Session totals (since page load)',
+          `${u.requests} LLM request(s) · input ~${fmt(u.prompt)} tok · output ~${fmt(u.completion)} tok`,
+          `**Estimated cost:** ${cost === undefined ? 'n/a (unknown model pricing)' : cost === 0 ? '$0.00 (free)' : `$${cost.toFixed(4)}`}`,
+          '',
+          '*Token counts are estimates (~4 chars/token).*',
+        ].join('\n'),
+      }])
       return
     }
     if (command === 'help') {
@@ -728,6 +796,7 @@ export default function App() {
               presencePenalty={agentSettings.presencePenalty}
               frequencyPenalty={agentSettings.frequencyPenalty}
               maxContextMessages={agentSettings.maxContextMessages}
+              maxContextTokens={agentSettings.maxContextTokens ?? 0}
               maxIterations={agentSettings.maxIterations ?? 50}
               theme={theme}
               systemPrompt={systemPrompt}
@@ -737,6 +806,7 @@ export default function App() {
               onPresencePenalty={(v) => setAgentSettings({ ...agentSettings, presencePenalty: v })}
               onFrequencyPenalty={(v) => setAgentSettings({ ...agentSettings, frequencyPenalty: v })}
               onMaxContextMessages={(v) => setAgentSettings({ ...agentSettings, maxContextMessages: v })}
+              onMaxContextTokens={(v) => setAgentSettings({ ...agentSettings, maxContextTokens: v })}
               onMaxIterations={(v) => setAgentSettings({ ...agentSettings, maxIterations: v })}
               onTheme={setTheme}
               onSystemPrompt={setSystemPrompt}

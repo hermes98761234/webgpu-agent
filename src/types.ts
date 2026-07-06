@@ -33,6 +33,8 @@ export interface AgentSettings {
   presencePenalty: number
   frequencyPenalty: number
   maxContextMessages: number
+  /** Token budget for conversation history (0 = auto from model context window). */
+  maxContextTokens: number
   maxIterations: number
 }
 

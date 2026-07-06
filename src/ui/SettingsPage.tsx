@@ -9,6 +9,7 @@ interface SettingsPageProps {
   presencePenalty: number
   frequencyPenalty: number
   maxContextMessages: number
+  maxContextTokens: number
   maxIterations: number
   theme: 'dark' | 'light'
   systemPrompt: string
@@ -18,6 +19,7 @@ interface SettingsPageProps {
   onPresencePenalty: (v: number) => void
   onFrequencyPenalty: (v: number) => void
   onMaxContextMessages: (v: number) => void
+  onMaxContextTokens: (v: number) => void
   onMaxIterations: (v: number) => void
   onTheme: (v: 'dark' | 'light') => void
   onSystemPrompt: (v: string) => void
@@ -29,9 +31,9 @@ interface SettingsPageProps {
 export function SettingsPage(props: SettingsPageProps) {
   const {
     onClose,
-    temperature, topP, maxTokens, presencePenalty, frequencyPenalty, maxContextMessages, maxIterations,
+    temperature, topP, maxTokens, presencePenalty, frequencyPenalty, maxContextMessages, maxContextTokens, maxIterations,
     theme, systemPrompt,
-    onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty, onMaxContextMessages, onMaxIterations,
+    onTemperature, onTopP, onMaxTokens, onPresencePenalty, onFrequencyPenalty, onMaxContextMessages, onMaxContextTokens, onMaxIterations,
     onTheme, onSystemPrompt,
     onChangePassword, onRemoveAllData, onGetFullPrompt,
   } = props
@@ -257,6 +259,18 @@ export function SettingsPage(props: SettingsPageProps) {
               style={{ flex: 1 }}
             />
             <span style={sliderBadge}>{maxContextMessages}</span>
+          </div>
+
+          <div style={sliderRow}>
+            <span style={sliderLabel}>Context Tokens</span>
+            <input
+              type="range"
+              min={0} max={131072} step={2048}
+              value={maxContextTokens}
+              onChange={(e) => onMaxContextTokens(parseInt(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={sliderBadge}>{maxContextTokens > 0 ? maxContextTokens : 'auto'}</span>
           </div>
 
           <div style={sliderRow}>
