@@ -84,7 +84,7 @@ describe('runAgent (limits and errors)', () => {
     const events: AgentEvent[] = []
     await runAgent(
       [{ role: 'user', content: 'x' }], provider, [echoTool], '', (e) => events.push(e),
-      undefined, { temperature: 0.7, topP: 1, maxTokens: 2048, presencePenalty: 0, frequencyPenalty: 0, maxContextMessages: 40, maxIterations: 10 },
+      undefined, { temperature: 0.7, topP: 1, maxTokens: 2048, presencePenalty: 0, frequencyPenalty: 0, maxContextMessages: 40, maxContextTokens: 0, maxIterations: 10 },
     )
     expect(events.some((e) => e.type === 'iteration_limit' && e.count === 10)).toBe(true)
   })

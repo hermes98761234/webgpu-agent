@@ -27,6 +27,7 @@ export async function nameSession(
         presencePenalty: 0,
         frequencyPenalty: 0,
         maxContextMessages: 2,
+        maxContextTokens: 0,
         maxIterations: 1,
       },
     )
