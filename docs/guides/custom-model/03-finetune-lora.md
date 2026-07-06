@@ -103,7 +103,7 @@ model.save_pretrained_merged("nova-qwen3-0.6b", tokenizer, save_method="merged_1
 
 ## Reading the training run
 
-Watch the loss column Cell 5 prints every 5 steps. It should drop steadily — for the 60-example persona set this guide ships, expect it to fall from around 2 down to under 1 by the end of training. On a T4, 3 epochs over 60 examples takes under 10 minutes.
+Watch the loss column Cell 5 prints every 5 steps. It should drop steadily — for the 64-example persona set this guide ships, expect it to fall from around 2 down to under 1 by the end of training. On a T4, 3 epochs over 64 examples takes under 10 minutes.
 
 In Cell 6, don't stop at one prompt. Try several held-out prompts your dataset didn't contain verbatim, to check the model generalized the persona rather than memorizing exact strings. If the persona doesn't stick after a few tries, raise `num_train_epochs` to 5 before reaching for more data.
 

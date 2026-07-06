@@ -11,7 +11,7 @@ Hugging Face gives you free hosting for model files of this size, serves the COR
 ```bash
 pip install -U "huggingface_hub[cli]"
 hf auth login                       # paste a WRITE token from https://huggingface.co/settings/tokens
-hf repo create Nova-Qwen3-0.6B-q4f16_1-MLC --type model
+hf repo create Nova-Qwen3-0.6B-q4f16_1-MLC
 hf upload <your-username>/Nova-Qwen3-0.6B-q4f16_1-MLC ./Nova-Qwen3-0.6B-q4f16_1-MLC .
 ```
 

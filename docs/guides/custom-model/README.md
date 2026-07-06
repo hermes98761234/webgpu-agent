@@ -19,7 +19,7 @@ pick base model ──► prepare dataset ──► LoRA fine-tune ──► mer
 3. [03 — Fine-Tune with LoRA](03-finetune-lora.md)
 4. [04 — Convert to MLC format](04-convert-to-mlc.md)
 5. [05 — Deploy the Weights to Hugging Face](05-deploy-weights.md)
-6. [06 — Register and select in the app](06-add-to-app.md)
+6. [06 — Add the model to the app](06-add-to-app.md)
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ pick base model ──► prepare dataset ──► LoRA fine-tune ──► mer
 
 | Path | Fine-tune time | Cost |
 | --- | --- | --- |
-| Colab free T4 (main path) | ~15–30 min for 60 examples | $0 |
+| Colab free T4 (main path) | ~15–30 min for the 64-example sample dataset (incl. setup) | $0 |
 | Local NVIDIA GPU (8 GB+) | ~10–20 min | $0 |
 | RunPod / Lambda (A10) | ~10 min | ~$1 |
 

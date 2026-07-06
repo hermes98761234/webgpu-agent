@@ -44,7 +44,7 @@ Commit the `CUSTOM_MODELS` edit and push to `main`; the deploy workflow (`.githu
 ## Troubleshooting
 
 - **404 fetching `mlc-chat-config.json`.** The chapter 05 verify step didn't actually pass — recheck the repo name and visibility.
-- **`Cannot find model_lib` or a WASM 404.** The donor id `Qwen3-0.6B-q4f16_1-MLC` must exist in the installed WebLLM's catalog — search `node_modules/@mlc-ai/web-llm/lib/index.js` for it (or check `prebuiltAppConfig.model_list` from the package directly), or pick another same-architecture donor and matching config.
+- **`Cannot find model_lib` or a WASM 404.** The donor id `Qwen3-0.6B-q4f16_1-MLC` must exist in the installed WebLLM's catalog — search `node_modules/@mlc-ai/web-llm/lib/index.js` for it (or check `prebuiltAppConfig.model_list` from the package directly), or pick another same-architecture donor and matching config. (If the donor id is missing, the app fails to start with a TypeError rather than a clean error message.)
 - **Garbled or looping output.** A `conv_template` or quantization mismatch — revisit chapter 04 steps 5 and 7.
 - **Model missing from the picker on a phone.** Raise or remove `vram_required_MB`, or set `low_resource_required: true`.
 - **`shader-f16` errors on old GPUs.** The app auto-falls back to q4f32 only for prebuilt variants — custom models have no q4f32 twin unless you also convert one with `--quantization q4f32_1` and add a second entry with the matching `-q4f32_1-MLC` id.
