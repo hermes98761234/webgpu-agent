@@ -65,6 +65,30 @@ describe('ApiProvider', () => {
     ).rejects.toThrow(/401/)
   })
 
+  it('waits minRequestIntervalSec between requests to the same baseUrl', async () => {
+    vi.useFakeTimers()
+    try {
+      const mockFetch = vi.fn(async () =>
+        sseResponse(['data: {"choices":[{"delta":{"content":"ok"}}]}', 'data: [DONE]']),
+      )
+      vi.stubGlobal('fetch', mockFetch)
+      const provider = new ApiProvider({
+        ...config,
+        baseUrl: 'https://throttled.test/v1',
+        minRequestIntervalSec: 60,
+      })
+      await provider.chat([{ role: 'user', content: 'hi' }], [], () => {})
+      const second = provider.chat([{ role: 'user', content: 'hi' }], [], () => {})
+      await vi.advanceTimersByTimeAsync(59_000)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1_000)
+      await second
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('sends attribution headers when kind is openrouter', async () => {
     vi.stubGlobal('location', { origin: 'https://my.app' })
     const mockFetch = vi.fn(async () =>

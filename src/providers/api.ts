@@ -41,6 +41,30 @@ export const API_PRESETS: Record<ApiConfig['kind'], { label: string; baseUrl: st
   custom: { label: 'Custom (OpenAI-compatible)', baseUrl: '', models: [] },
 }
 
+// ponytail: per-baseUrl in-memory throttle; resets on page reload, which is fine for RPM limits
+const lastRequestAt = new Map<string, number>()
+
+async function throttle(config: ApiConfig, signal?: AbortSignal) {
+  const intervalMs = (config.minRequestIntervalSec ?? 0) * 1000
+  if (intervalMs > 0) {
+    const waitMs = (lastRequestAt.get(config.baseUrl) ?? 0) + intervalMs - Date.now()
+    if (waitMs > 0) {
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, waitMs)
+        signal?.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(t)
+            reject(new DOMException('Aborted', 'AbortError'))
+          },
+          { once: true },
+        )
+      })
+    }
+  }
+  lastRequestAt.set(config.baseUrl, Date.now())
+}
+
 export function parseSseLines(buffer: string): { events: string[]; rest: string } {
   const events: string[] = []
   const lines = buffer.split('\n')
@@ -115,6 +139,7 @@ export class ApiProvider implements Provider {
     signal?: AbortSignal,
     settings?: AgentSettings,
   ): Promise<ChatResult> {
+    await throttle(this.#config, signal)
     const body: Record<string, unknown> = {
       model: this.#config.model,
       messages: messages.map(toWireMessage),

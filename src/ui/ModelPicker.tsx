@@ -143,6 +143,19 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
               disabled={busy}
             />
           </div>
+          <div className="row">
+            <label title="Minimum seconds between requests to this provider. Use for free-tier rate limits, e.g. 10 requests/min = 6 sec. 0 = off.">
+              sec between requests
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={api.minRequestIntervalSec ?? 0}
+                onChange={(e) => setApi({ ...api, minRequestIntervalSec: Math.max(0, Number(e.target.value) || 0) })}
+                disabled={busy}
+              />
+            </label>
+          </div>
         </div>
       )}
     </div>

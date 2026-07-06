@@ -53,6 +53,8 @@ export interface ApiConfig {
   baseUrl: string
   apiKey: string
   model: string
+  /** Min seconds between requests to this provider (0/undefined = off). For free-tier RPM limits, e.g. 10 RPM -> 6. */
+  minRequestIntervalSec?: number
 }
 
 export interface Skill {
