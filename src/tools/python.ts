@@ -15,7 +15,6 @@ async function initRuntime(): Promise<PyRuntime> {
   // donkey() — it forces a `terminal` attribute, and the py-terminal plugin's
   // worker bootstrap needs SharedArrayBuffer (COOP/COEP headers) we don't have
   // on GitHub Pages. We create a plain worker script instead.
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error — CDN module has no type declarations
   await import('https://pyscript.net/releases/2026.3.1/core.js')
 

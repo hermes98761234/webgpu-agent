@@ -231,7 +231,6 @@ export function Terminal({ onClose, active }: Props) {
       observer.disconnect()
       // Do NOT dispose — keep alive across tab switches
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Also handle path tab completion hint (optional: resolve paths on Tab)

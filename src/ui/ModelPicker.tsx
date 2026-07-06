@@ -36,7 +36,7 @@ export function ModelPicker({ mode, setMode, localModel, setLocalModel, api, set
     if (models.length > 0 && !models.some((m) => m.id === localModel)) {
       setLocalModel(models[0].id)
     }
-  }, [hwString])
+  }, [models, localModel, setLocalModel])
 
   const families = [...new Set(models.map((m) => m.family))]
 

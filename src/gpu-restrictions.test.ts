@@ -18,6 +18,7 @@ describe('analyzeGpuRestrictions', () => {
   it('restricts on FP16 untrusted alone', () => {
     const r = analyzeGpuRestrictions('GPU: unknown · FP16 untrusted — q4f32 models will be substituted')
     expect(r.status).toBe('restricted')
+    expect(r.reason).not.toContain('Mali') // don't claim a Mali GPU we never detected
   })
 
   it('is compatible for desktop GPU', () => {

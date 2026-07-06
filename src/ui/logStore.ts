@@ -56,7 +56,6 @@ const orig = {
 }
 
 for (const level of ['log', 'info', 'warn', 'error', 'debug'] as const) {
-  // eslint-disable-next-line no-console
   console[level] = (...args: unknown[]) => {
     orig[level](...args)
     push({ kind: 'console', level, text: args.map(formatArg).join(' ') })

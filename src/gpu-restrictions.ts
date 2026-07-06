@@ -9,10 +9,8 @@ const RESTRICTED_PRECISIONS = ['f16', 'q4f16', 'f16_1', 'q4f16_1']
 
 export function analyzeGpuRestrictions(hardwareString: string): GpuRestriction {
   const s = hardwareString.toLowerCase()
-  const restricted =
-    s.includes('arm valhall') ||
-    s.includes('mali') ||
-    s.includes('fp16 untrusted')
+  const isMali = s.includes('arm valhall') || s.includes('mali')
+  const restricted = isMali || s.includes('fp16 untrusted')
 
   if (!restricted) {
     return {
@@ -25,8 +23,9 @@ export function analyzeGpuRestrictions(hardwareString: string): GpuRestriction {
 
   return {
     status: 'restricted',
-    reason:
-      'ARM Valhall (Mali) GPU detected with untrusted FP16 support. Browser-forced substitution will corrupt text output.',
+    reason: isMali
+      ? 'ARM Valhall (Mali) GPU detected with untrusted FP16 support. Browser-forced substitution will corrupt text output.'
+      : 'This GPU’s FP16 support is untrusted — f16/q4f16 models are hidden to avoid corrupted output.',
     action: 'Disable all f16 and q4f16 models in the selection menu.',
     disabled_precisions: RESTRICTED_PRECISIONS,
   }
